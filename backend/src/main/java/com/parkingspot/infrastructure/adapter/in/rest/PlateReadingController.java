@@ -33,10 +33,12 @@ public class PlateReadingController {
                     + "y responde con la fuente SIMULADOR. No aplica umbral de confianza ni registra el ingreso.",
             responses = {
                     @ApiResponse(responseCode = "200", description = "Lectura simulada, normalizada y clasificada",
-                            content = @Content(schema = @Schema(implementation = PlateReadingResponse.class))),
+                            content = @Content(mediaType = "application/json",
+                                    schema = @Schema(implementation = PlateReadingResponse.class))),
                     @ApiResponse(responseCode = "400",
                             description = "Confianza fuera de [0, 1] o ausente, placa con formato inválido o JSON mal formado",
-                            content = @Content(schema = @Schema(implementation = ErrorResponse.class), examples = {
+                            content = @Content(mediaType = "application/json",
+                                    schema = @Schema(implementation = ErrorResponse.class), examples = {
                                     @ExampleObject(name = "INVALID_CONFIDENCE", value = """
                                             {"code":"INVALID_CONFIDENCE","message":"La confianza debe ser un número entre 0 y 1."}"""),
                                     @ExampleObject(name = "INVALID_PLATE", value = """
