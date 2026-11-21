@@ -11,11 +11,15 @@ La clasificación de placas se implementa en dominio y aplicación, con un adapt
 
 ## Ejecutar
 
-Se requieren JDK 21 y Maven. Desde la raíz del repositorio:
+Se requieren JDK 21, Maven y una base PostgreSQL. La forma más simple es levantar solo la base con Docker Compose (ver el README raíz) y exportar la contraseña. Desde la raíz del repositorio:
 
 ```sh
+docker compose up -d db
+export DB_PASSWORD=<la de POSTGRES_PASSWORD en .env>   # PowerShell: $env:DB_PASSWORD="..."
 mvn -f backend/pom.xml spring-boot:run
 ```
+
+Para levantar todo (base, backend y frontend) en contenedores: `docker compose up -d --build`.
 
 Consultar las rutas disponibles:
 
@@ -41,8 +45,15 @@ mvn -f backend/pom.xml -DskipTests compile
 | Variable | Valor por defecto | Uso |
 | --- | --- | --- |
 | `SERVER_PORT` | `8080` | Puerto HTTP, incluido el endpoint de salud. |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/parkingspot` | URL JDBC de PostgreSQL. En Compose apunta al servicio `db`. |
+| `DB_USERNAME` | `parkingspot` | Usuario de la base de datos. |
+| `DB_PASSWORD` | *(vacío)* | Contraseña de la base de datos. No tiene valor por defecto. |
+| `FRONTEND_ORIGIN` | `http://localhost:5173` | Origen permitido por CORS. |
+| `TZ` | `America/Bogota` | Zona horaria usada por Hibernate. |
 
-Springdoc publica `/v3/api-docs` y Swagger UI en el mismo puerto. `springdoc.show-actuator=true` incorpora los endpoints de Actuator al esquema; la exposición HTTP de Actuator sigue limitada a `health` en `application.yml` (además de la ruta raíz de enlaces propia de Actuator). No se requieren variables de entorno adicionales para la documentación.
+La persistencia usa Spring Data JPA con el driver de PostgreSQL. `ddl-auto` está en `none`: el esquema lo crearán las migraciones versionadas de HU-05. `/actuator/health` muestra el componente `db`, así que responde `DOWN` (HTTP 503) si la base no está disponible.
+
+Springdoc publica `/v3/api-docs` y Swagger UI en el mismo puerto. `springdoc.show-actuator=true` incorpora los endpoints de Actuator al esquema; la exposición HTTP de Actuator sigue limitada a `health` en `application.yml` (además de la ruta raíz de enlaces propia de Actuator). 
 
 ## Clasificación de vehículos
 
