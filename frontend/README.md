@@ -1,6 +1,15 @@
 # Frontend
 
-Interfaz de Parking Spot con React 19, TypeScript 5, Vite 7, Tailwind CSS 4 y React Router 7. La ruta `/` muestra la bienvenida y `/vehicles/classify` permite clasificar una placa mediante el backend. La antigua ruta `/classify` redirige a la nueva.
+Interfaz de Parking Spot con React 19, TypeScript 5, Vite 7, Tailwind CSS 4 y React Router 7. Rutas disponibles:
+
+| Ruta | Pantalla |
+| --- | --- |
+| `/` | Bienvenida con accesos a los paneles. |
+| `/operator` | Panel base del rol operador (carriles de entrada y salida, caja). |
+| `/admin` | Panel base del rol administrador (tarifas, cupos, consultas). |
+| `/vehicles/classify` | Clasificación de una placa mediante el backend. `/classify` redirige aquí. |
+
+Los paneles `/operator` y `/admin` comparten el diseño `AppLayout` (barra de navegación). Los módulos que todavía no existen aparecen como **Pendiente** con la historia de usuario que los implementará. El control de acceso por rol llega con HU-06.
 
 ## Requisitos
 
@@ -20,17 +29,22 @@ Abrir la URL que indique Vite, normalmente `http://localhost:5173/`. Otros coman
 ```sh
 npm run build    # Comprueba TypeScript y genera dist/
 npm run preview  # Sirve la compilación localmente
-npm run test     # Prueba técnica de renderizado de la ruta /
+npm run test     # Pruebas de rutas y del cliente HTTP
 ```
 
 ## Estructura
 
-- `src/app/router/`: rutas de la aplicación.
+- `src/app/config/env.ts`: lectura de `VITE_API_BASE_URL`.
+- `src/app/router/`: rutas de la aplicación (`routes.ts` centraliza las rutas).
+- `src/services/httpClient.ts`: cliente HTTP único; agrega la URL base, envía JSON y convierte los errores del backend (`{ code, message }`) en `ApiError`.
+- `src/components/layout/AppLayout.tsx` y `src/components/ui/ModuleCard.tsx`: componentes reutilizables.
 - `src/features/home/`: pantalla inicial.
-- `src/features/vehicles/`: formulario y cliente HTTP de clasificación.
+- `src/features/parking/`: panel de operador.
+- `src/features/administration/`: panel de administración.
+- `src/features/vehicles/`: formulario y API de clasificación.
 - `src/styles/`: estilos globales y entrada de Tailwind CSS.
-- `src/tests/`: prueba técnica de renderizado.
-- `src/components/`, `hooks/`, `services/`, `types/` y `utils/`: espacios para responsabilidades futuras; aún no contienen código funcional.
+- `src/tests/`: pruebas de rutas, cliente HTTP y clasificación.
+- `src/hooks/`, `types/` y `utils/`: espacios para responsabilidades futuras.
 
 `VITE_API_BASE_URL` indica la URL base del backend y vale `http://localhost:8080` por defecto. Puedes copiar `.env.example` a `.env.local` para cambiarla. Arranca también el backend y configura allí `FRONTEND_ORIGIN` con el origen de Vite si difiere de `http://localhost:5173`. La clasificación no guarda datos ni implementa ingreso, salida o autenticación.
 

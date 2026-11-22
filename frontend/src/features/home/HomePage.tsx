@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { ROUTES } from '../../app/router/routes'
 
 export function HomePage() {
   return (
@@ -14,12 +15,26 @@ export function HomePage() {
         <p className="mt-6 max-w-prose text-base leading-relaxed text-slate-300">
           Frontend inicial desarrollado con React, TypeScript, Vite y Tailwind CSS.
         </p>
-        <Link
-          to="/vehicles/classify"
-          className="mt-8 inline-flex rounded-lg bg-teal-300 px-5 py-3 font-semibold text-slate-950 hover:bg-teal-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300"
-        >
-          Clasificar una placa
-        </Link>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            to={ROUTES.operator}
+            className="inline-flex rounded-lg bg-teal-300 px-5 py-3 font-semibold text-slate-950 hover:bg-teal-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300"
+          >
+            Panel de operador
+          </Link>
+          <Link
+            to={ROUTES.admin}
+            className="inline-flex rounded-lg border border-teal-300 px-5 py-3 font-semibold text-teal-200 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300"
+          >
+            Panel de administración
+          </Link>
+          <Link
+            to={ROUTES.classifyVehicle}
+            className="inline-flex rounded-lg px-5 py-3 font-semibold text-slate-300 hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-300"
+          >
+            Clasificar una placa
+          </Link>
+        </div>
       </section>
     </main>
   )
