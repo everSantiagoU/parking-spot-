@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
+import { ROUTES } from '../../app/router/routes'
 import { classifyVehicle, type VehicleClassification } from './classificationApi'
 
 export function ClassifyVehiclePage() {
@@ -23,9 +24,9 @@ export function ClassifyVehiclePage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-16 text-slate-100">
+    <div className="flex justify-center">
       <section className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 p-8 shadow-xl sm:p-12">
-        <Link to="/" className="text-sm font-medium text-teal-300 hover:text-teal-200">← Inicio</Link>
+        <Link to={ROUTES.operator} className="text-sm font-medium text-teal-300 hover:text-teal-200">← Operador</Link>
         <h1 className="mt-6 text-3xl font-bold tracking-tight sm:text-4xl">Clasificar vehículo</h1>
         <p className="mt-3 text-slate-300">Ingresa una placa colombiana para consultar su tipo.</p>
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -57,6 +58,6 @@ export function ClassifyVehiclePage() {
         )}
         {error && <p role="alert" className="mt-6 rounded-lg border border-red-700 bg-red-950 p-4 text-red-100">{error}</p>}
       </section>
-    </main>
+    </div>
   )
 }
