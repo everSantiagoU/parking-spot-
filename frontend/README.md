@@ -7,10 +7,10 @@ Interfaz de Parking Spot con React 19, TypeScript 5, Vite 7, Tailwind CSS 4 y Re
 | `/` | Bienvenida pública. Enlaza a iniciar sesión o al panel del usuario. |
 | `/login` | Inicio de sesión público. Una sesión válida redirige al panel de su rol. |
 | `/operator` | Solo `OPERADOR`. Panel de operación (carriles de entrada y salida, caja). |
-| `/admin` | Solo `ADMIN`. Panel de administración (tarifas, cupos, consultas). |
+| `/admin` | Solo `ADMIN`. Panel de administración (tarifas, franjas, cupos y consultas). |
 | `/vehicles/classify` | Solo `OPERADOR`. Clasificación de una placa mediante el backend. `/classify` redirige aquí. |
 
-Los paneles `/operator` y `/admin` comparten el diseño `AppLayout` (barra de navegación). Los módulos que todavía no existen aparecen como **Pendiente** con la historia de usuario que los implementará. Las rutas protegidas consultan la sesión al cargar. HTTP 401 vuelve al inicio de sesión y HTTP 403 muestra acceso denegado y mantiene la sesión. El cierre de sesión se realiza desde la navegación del panel.
+Los paneles `/operator` y `/admin` comparten el diseño `AppLayout` (barra de navegación). Los módulos que todavía no existen aparecen como **Pendiente** con la historia de usuario que los implementará. Las rutas protegidas esperan la confirmación de la sesión antes de mostrar el panel. Ante un problema de conexión o del servidor, **Reintentar** vuelve a consultar la sesión en la misma ruta. HTTP 401 vuelve al inicio de sesión y HTTP 403 muestra acceso denegado y mantiene la sesión. El cierre de sesión se realiza desde la navegación del panel.
 
 ## Requisitos
 

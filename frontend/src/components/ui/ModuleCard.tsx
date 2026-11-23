@@ -15,11 +15,11 @@ export function ModuleCard({ title, description, to, story }: ModuleCardProps) {
     <>
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-lg font-semibold">{title}</h3>
-        {!to && (
-          <span className="rounded-full border border-slate-600 px-2 py-0.5 text-xs text-slate-400">
-            Pendiente{story ? ` · ${story}` : ''}
-          </span>
-        )}
+        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs ${to
+          ? 'border-teal-700 text-teal-300'
+          : 'border-slate-600 text-slate-300'}`}>
+          {to ? 'Disponible' : `Pendiente${story ? ` · ${story}` : ''}`}
+        </span>
       </div>
       <p className="mt-2 text-sm text-slate-300">{description}</p>
     </>
@@ -27,7 +27,7 @@ export function ModuleCard({ title, description, to, story }: ModuleCardProps) {
 
   if (!to) {
     return (
-      <article aria-disabled="true" className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 opacity-70">
+      <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
         {content}
       </article>
     )

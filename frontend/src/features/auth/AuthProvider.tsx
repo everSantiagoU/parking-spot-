@@ -4,10 +4,12 @@ import { ApiError, onUnauthorized, request } from '../../services/httpClient'
 export type Role = 'OPERADOR' | 'ADMIN'
 type SessionUser = { username: string; role: Role }
 
+export type SessionStatus = 'checking' | 'ready' | 'unavailable' | 'forbidden'
+
 type AuthState = {
   user: SessionUser | null
-  loading: boolean
-  error: string
+  sessionStatus: SessionStatus
+  retrySession: () => void
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -16,29 +18,38 @@ const AuthContext = createContext<AuthState | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>('checking')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
     const unsubscribe = onUnauthorized(() => setUser(null))
     request<SessionUser>('/api/v1/auth/me', { signal: controller.signal })
       .then((session) => {
-        if (!controller.signal.aborted) setUser(session)
+        if (controller.signal.aborted) return
+        setUser(session)
+        setSessionStatus('ready')
       })
       .catch((cause: unknown) => {
-        if (!controller.signal.aborted && !(cause instanceof ApiError && cause.status === 401)) {
-          setError('No se pudo consultar la sesión. Recarga la página para volver a intentar.')
+        if (controller.signal.aborted) return
+        const status = cause instanceof ApiError ? cause.status : undefined
+        if (status === 401) {
+          setUser(null)
+          setSessionStatus('ready')
+        } else {
+          setSessionStatus(status === 403 ? 'forbidden' : 'unavailable')
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false)
       })
     return () => {
       controller.abort()
       unsubscribe()
     }
-  }, [])
+  }, [attempt])
+
+  function retrySession() {
+    setSessionStatus('checking')
+    setAttempt((current) => current + 1)
+  }
 
   async function login(username: string, password: string) {
     const session = await request<SessionUser>('/api/v1/auth/login', {
@@ -54,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, loading, error, login, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, sessionStatus, retrySession, login, logout }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

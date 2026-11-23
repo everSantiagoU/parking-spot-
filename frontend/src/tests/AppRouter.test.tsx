@@ -37,6 +37,10 @@ afterEach(async () => {
 
 async function render(path: string, session?: typeof operator) {
   fetchMock.mockResolvedValueOnce(session ? response(200, session) : response(401))
+  await renderRoute(path)
+}
+
+async function renderRoute(path: string) {
   await act(async () => root.render(
     <MemoryRouter initialEntries={[path]}>
       <AppRouter />
@@ -74,19 +78,71 @@ describe('rutas y sesión', () => {
     expect(container.textContent).toContain('Panel de operador')
     expect(container.querySelector('a[href="/vehicles/classify"]')).toBeTruthy()
     expect(container.querySelector('a[href="/admin"]')).toBeNull()
+    expect(container.querySelector('a[href="/vehicles/classify"]')?.textContent).toContain('Disponible')
+    for (const title of ['Carril de entrada', 'Carril de salida']) {
+      const card = [...container.querySelectorAll('article')].find((item) => item.textContent?.includes(title))
+      expect(card?.textContent).toContain('Pendiente')
+      expect(card?.querySelector('a, button')).toBeNull()
+    }
   })
 
   it('recupera la sesión de administrador y muestra sus módulos', async () => {
     await render('/admin', admin)
-    expect(container.textContent).toContain('Tarifas y franjas')
+    for (const title of ['Tarifas', 'Franjas', 'Cupos']) {
+      const card = [...container.querySelectorAll('article')]
+        .find((item) => item.querySelector('h3')?.textContent === title)
+      expect(card?.textContent).toContain('Pendiente')
+      expect(card?.querySelector('a, button')).toBeNull()
+    }
     expect(container.querySelector('a[href="/operator"]')).toBeNull()
   })
 
-  it('bloquea el acceso directo al panel del otro rol y enlaza al panel propio', async () => {
-    await render('/admin', operator)
+  it.each([
+    ['/admin', operator, '/operator', 'Panel de operador'],
+    ['/operator', admin, '/admin', 'Panel de administración'],
+  ] as const)('bloquea el acceso directo a %s y permite volver al panel propio', async (path, session, panel, title) => {
+    await render(path, session)
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Acceso denegado.')
-    expect(container.querySelector('a')?.getAttribute('href')).toBe('/operator')
-    expect(container.textContent).not.toContain('Tarifas y franjas')
+    expect(container.querySelector('a')?.getAttribute('href')).toBe(panel)
+    await act(async () => container.querySelector('a')!.click())
+    expect(currentPath()).toBe(panel)
+    expect(container.querySelector('h1')?.textContent).toBe(title)
+  })
+
+  it('muestra la carga sin revelar el panel hasta confirmar el rol', async () => {
+    let confirmSession!: (value: ReturnType<typeof response>) => void
+    fetchMock.mockReturnValueOnce(new Promise((resolve) => { confirmSession = resolve }))
+    await renderRoute('/admin')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Consultando sesión…')
+    expect(container.querySelector('nav, article')).toBeNull()
+
+    await act(async () => confirmSession(response(200, admin)))
+    expect(container.querySelector('h1')?.textContent).toBe('Panel de administración')
+  })
+
+  it.each(['red', 'servidor'])('permanece en la ruta y permite reintentar ante un fallo de %s', async (failure) => {
+    if (failure === 'red') fetchMock.mockRejectedValueOnce(new TypeError('Sin conexión'))
+    else fetchMock.mockResolvedValueOnce(response(503))
+    await renderRoute('/operator')
+    expect(currentPath()).toBe('/operator')
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('No se pudo consultar la sesión')
+    expect(container.querySelector('nav, article')).toBeNull()
+
+    fetchMock.mockResolvedValueOnce(response(200, operator))
+    const retry = container.querySelector('button')!
+    expect(retry.textContent).toBe('Reintentar')
+    await act(async () => retry.click())
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(currentPath()).toBe('/operator')
+    expect(container.querySelector('h1')?.textContent).toBe('Panel de operador')
+  })
+
+  it('muestra acceso denegado si la recuperación devuelve 403 sin redirigir al login', async () => {
+    fetchMock.mockResolvedValueOnce(response(403))
+    await renderRoute('/admin')
+    expect(currentPath()).toBe('/admin')
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Acceso denegado.')
+    expect(container.querySelector('form, nav, article')).toBeNull()
   })
 
   it.each([401, 403])('gestiona HTTP %s al clasificar con una sesión previamente válida', async (status) => {

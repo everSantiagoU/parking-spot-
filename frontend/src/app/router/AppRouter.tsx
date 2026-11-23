@@ -2,6 +2,7 @@ import { Link, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '../../components/layout/AppLayout'
 import { AdminHomePage } from '../../features/administration/AdminHomePage'
 import { AuthProvider, useAuth, type Role } from '../../features/auth/AuthProvider'
+import { SessionFeedback } from '../../features/auth/SessionFeedback'
 import { LoginPage } from '../../features/auth/LoginPage'
 import { HomePage } from '../../features/home/HomePage'
 import { OperatorHomePage } from '../../features/parking/OperatorHomePage'
@@ -9,8 +10,8 @@ import { ClassifyVehiclePage } from '../../features/vehicles/ClassifyVehiclePage
 import { panelForRole, ROUTES } from './routes'
 
 function RequireRole({ role }: { role: Role }) {
-  const { user, loading } = useAuth()
-  if (loading) return <p role="status">Consultando sesión…</p>
+  const { user, sessionStatus } = useAuth()
+  if (sessionStatus !== 'ready') return <SessionFeedback />
   if (!user) return <Navigate to={ROUTES.login} replace />
   if (user.role !== role) {
     return (

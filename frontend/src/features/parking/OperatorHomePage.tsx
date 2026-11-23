@@ -8,12 +8,12 @@ const OPERATOR_MODULES: ModuleCardProps[] = [
   { title: 'Caja', description: 'Registra el pago en efectivo del cobro de una placa.', story: 'HU-15' },
 ]
 
-/** Panel base del rol operador. */
+/** Panel de carril del rol operador. */
 export function OperatorHomePage() {
   return (
     <section>
       <h1 className="text-3xl font-bold tracking-tight">Panel de operador</h1>
-      <p className="mt-2 text-slate-300">Operación diaria de los carriles y la caja.</p>
+      <p className="mt-2 text-slate-300">Operación de carril y caja.</p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {OPERATOR_MODULES.map((item) => (
           <ModuleCard key={item.title} {...item} />

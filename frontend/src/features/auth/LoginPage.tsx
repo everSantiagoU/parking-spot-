@@ -3,12 +3,14 @@ import { Navigate } from 'react-router'
 import { panelForRole } from '../../app/router/routes'
 import { ApiError } from '../../services/httpClient'
 import { useAuth } from './AuthProvider'
+import { SessionFeedback } from './SessionFeedback'
 
 export function LoginPage() {
-  const { user, loading, error: sessionError, login } = useAuth()
+  const { user, sessionStatus, login } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  if (sessionStatus !== 'ready') return <SessionFeedback />
   if (user) return <Navigate to={panelForRole(user.role)} replace />
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -47,11 +49,11 @@ export function LoginPage() {
             <input className={inputStyle} name="password" type="password" autoComplete="current-password" required />
           </label>
           <button className="w-full rounded-lg bg-teal-300 px-4 py-3 font-semibold text-slate-950 disabled:opacity-60"
-            disabled={loading || submitting}>
-            {loading ? 'Consultando sesión…' : submitting ? 'Iniciando sesión…' : 'Entrar'}
+            disabled={submitting}>
+            {submitting ? 'Iniciando sesión…' : 'Entrar'}
           </button>
         </form>
-        {(error || sessionError) && <p role="alert" className="mt-4 text-red-200">{error || sessionError}</p>}
+        {error && <p role="alert" className="mt-4 text-red-200">{error}</p>}
       </section>
     </main>
   )
