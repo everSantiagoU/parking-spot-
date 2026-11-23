@@ -40,3 +40,6 @@ management:
       show-components: always
 springdoc:
   show-actuator: true
+parking:
+  # Zona horaria del día operativo (06:00 a 05:59). HU-15.
+  time-zone: ${TZ:America/Bogota}
