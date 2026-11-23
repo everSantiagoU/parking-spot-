@@ -4,9 +4,17 @@ import { ApiError, postJson, request } from '../services/httpClient'
 
 afterEach(() => vi.unstubAllGlobals())
 
+function withCsrf(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ headerName: 'X-CSRF-TOKEN', token: 'test-token' }),
+  })
+}
+
+
 describe('cliente HTTP', () => {
   it('usa la URL base configurada y envía JSON', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: 1 }) })
+    const fetchMock = withCsrf(vi.fn()).mockResolvedValue({ ok: true, json: async () => ({ ok: 1 }) })
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(postJson('/api/v1/demo', { a: 1 })).resolves.toEqual({ ok: 1 })
@@ -14,8 +22,9 @@ describe('cliente HTTP', () => {
       `${apiBaseUrl}/api/v1/demo`,
       expect.objectContaining({
         method: 'POST',
+        credentials: 'include',
         body: JSON.stringify({ a: 1 }),
-        headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+        headers: expect.objectContaining({ 'Content-Type': 'application/json', 'X-CSRF-TOKEN': 'test-token' }),
       }),
     )
   })

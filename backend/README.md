@@ -51,20 +51,45 @@ mvn -f backend/pom.xml -DskipTests compile
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | Origen permitido por CORS. |
 | `TZ` | `America/Bogota` | Zona horaria usada por Hibernate. |
 
-La persistencia usa Spring Data JPA con el driver de PostgreSQL. `ddl-auto` está en `none`: el esquema lo crearán las migraciones versionadas de HU-05. `/actuator/health` muestra el componente `db`, así que responde `DOWN` (HTTP 503) si la base no está disponible.
+La persistencia usa PostgreSQL y mantiene `ddl-auto: none`. HU-06 consulta `usuarios` y `roles` mediante JDBC y usa `sedes` al crear operadores. El esquema y los datos iniciales proceden de HU-05. `/actuator/health` muestra el componente `db`, así que responde `DOWN` (HTTP 503) si la base no está disponible.
 
 Springdoc publica `/v3/api-docs` y Swagger UI en el mismo puerto. `springdoc.show-actuator=true` incorpora los endpoints de Actuator al esquema; la exposición HTTP de Actuator sigue limitada a `health` en `application.yml` (además de la ruta raíz de enlaces propia de Actuator). 
 
-## Clasificación de vehículos
+## Autenticación y roles (HU-06)
 
-`POST /api/v1/vehicles/classify` recibe una placa y devuelve su valor normalizado y el tipo calculado por el backend:
+| Método y ruta | Acceso |
+| --- | --- |
+| `GET /api/v1/auth/csrf` | Público. Devuelve `headerName` y `token`. |
+| `POST /api/v1/auth/login` | Público con CSRF. Recibe `username` y `password` en formato `application/x-www-form-urlencoded`. |
+| `GET /api/v1/auth/me` | Sesión válida. Devuelve `{ "username": "...", "role": "OPERADOR" }` o el rol `ADMIN`. |
+| `POST /api/v1/auth/logout` | Sesión válida y CSRF. Invalida la sesión y responde 204. |
+| `POST /api/v1/vehicles/classify` | Solo `OPERADOR`, con CSRF. |
+| `/api/v1/admin/**` | Solo `ADMIN`. Las solicitudes que modifican estado requieren CSRF. |
+
+El inicio de sesión devuelve el mismo objeto que `/auth/me` y renueva el identificador de sesión. Spring mantiene la sesión en memoria con 30 minutos de inactividad y usa la cookie `JSESSIONID`, configurada con `HttpOnly` y `SameSite=Lax`. Para servir la API por HTTPS, activa `SESSION_COOKIE_SECURE=true`. En local, usa el mismo nombre de host para ambas aplicaciones (por ejemplo, `localhost` en ambas) y configura `FRONTEND_ORIGIN` con el origen exacto del frontend. CORS permite credenciales desde ese origen. El cliente incluye la cookie y solicita un token CSRF antes de cada operación de escritura, incluidas login y logout. Envía el token con el nombre de cabecera devuelto por el servidor (`X-CSRF-TOKEN`).
+
+La API devuelve 401 ante credenciales inválidas o solicitudes protegidas con sesión ausente, inválida o expirada. Devuelve 403 ante permisos insuficientes o CSRF inválido en una sesión válida. El login también devuelve 403 si falta su token CSRF o es inválido.
+
+El acceso GET local a `/actuator`, `/actuator/health`, `/swagger-ui.html`, `/swagger-ui/**` y `/v3/api-docs/**` es público. En Swagger puedes consultar la documentación sin sesión. Para ejecutar una operación protegida, la solicitud necesita la cookie de una sesión con el rol indicado y, para escrituras, el token CSRF. Puedes probar el flujo completo desde el frontend.
+
+`POST /api/v1/vehicles/classify` recibe, por ejemplo, `{"plate":" abc123 "}` y responde `{"plate":"ABC123","type":"CARRO"}`. `ABC12D` se reconoce como `MOTO`. Un formato inválido devuelve 400 con código `INVALID_PLATE`. La clasificación sigue sin persistir datos.
+
+### Preparar PostgreSQL y crear cuentas de prueba
+
+Aplica primero `V1__esquema_inicial.sql` y `V2__datos_iniciales.sql` de [HU-05 (PR #23)](https://github.com/everSantiagoU/parking-spot-/pull/23). Cuando HU-05 esté integrada, Flyway las aplica durante el arranque. Para ensayar esta rama por separado, puedes extraer ambos archivos del PR y aplicarlos con `psql -v ON_ERROR_STOP=1 -f archivo.sql` en orden V1 y V2, sobre una base vacía de prueba. Usa una base descartable para esa aplicación manual, ya que `psql` no registra las versiones en Flyway.
+
+Con `DB_URL`, `DB_USERNAME` y `DB_PASSWORD` apuntando a la base preparada, ejecuta desde la raíz:
 
 ```sh
-curl -X POST http://localhost:8080/api/v1/vehicles/classify \
-  -H 'Content-Type: application/json' \
-  -d '{"plate":" abc123 "}'
+mvn -f backend/pom.xml -DskipTests package
+java -jar backend/target/parking-spot-0.0.1-SNAPSHOT.jar \
+  --spring.main.web-application-type=none --spring.profiles.active=create-account
 ```
 
-Respuesta HTTP 200: `{"plate":"ABC123","type":"CARRO"}`. También se reconoce `ABC12D` como `MOTO`. Una placa con formato inválido devuelve HTTP 400 con `code` igual a `INVALID_PLATE` y un `message` explicativo. No se persisten datos.
+El comando pide el rol, el usuario, el nombre completo y la contraseña en una terminal interactiva. La contraseña se lee sin eco ni argumentos de línea de comandos. El alta guarda el hash BCrypt y asocia a los operadores con la sede activa `Sede Principal` de HU-05. Ejecuta el comando una vez para cada rol. En HU-06 no hay cuentas predeterminadas ni un endpoint HTTP de alta.
 
-Para usar la vista de clasificación durante el desarrollo local, el backend permite solicitudes CORS únicamente desde `FRONTEND_ORIGIN` (por defecto, `http://localhost:5173`). Ajusta esta variable si Vite usa otro origen. No hay conexiones a servicios externos configuradas.
+Arranca la aplicación en modo web con `mvn -f backend/pom.xml spring-boot:run`. Desde `frontend/`, ejecuta `npm ci` y `npm run dev`. Abre `http://localhost:5173/login` y prueba cada cuenta. Como operador, clasifica una placa, recarga y visita `/admin` para comprobar la denegación. Como administrador, recarga `/admin` y verifica la restricción al visitar `/operator`. Cierra sesión desde cada panel y vuelve a abrir una ruta protegida.
+
+### Verificación de tarifas (HU-12)
+
+`mvn -f backend/pom.xml test` prueba `PUT /api/v1/admin/tariffs/1` con un controlador que existe exclusivamente en el contexto de pruebas. Con una sesión válida y CSRF, el operador recibe 403 y el administrador llega al controlador (204). Cuando HU-12 implemente las tarifas, ubica las operaciones administrativas bajo `/api/v1/admin/**` y verifica la misma política para cada método real de modificación, incluida la ausencia de cambios en la base cuando se rechace una solicitud.

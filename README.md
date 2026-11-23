@@ -11,7 +11,7 @@ Monorepo del sistema académico Parking Spot. El repositorio contiene un monolit
 - `docs/`: documentación académica y técnica.
 - `scripts/`: automatizaciones locales (`verificar-entorno.sh`).
 
-Consulta los README de `backend/` y `frontend/` para trabajar en cada parte por separado.
+Consulta los README de `backend/` y `frontend/` para trabajar en cada parte por separado. Para iniciar sesión con HU-06, prepara el esquema de HU-05 y crea una cuenta por rol según el [README del backend](backend/README.md#preparar-postgresql-y-crear-cuentas-de-prueba).
 
 ## Arranque desde cero con Docker Compose
 
