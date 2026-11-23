@@ -1,6 +1,16 @@
 # Frontend
 
-Interfaz de Parking Spot con React 19, TypeScript 5, Vite 7, Tailwind CSS 4 y React Router 7. La ruta `/` muestra la bienvenida y `/vehicles/classify` permite clasificar una placa mediante el backend. La antigua ruta `/classify` redirige a la nueva.
+Interfaz de Parking Spot con React 19, TypeScript 5, Vite 7, Tailwind CSS 4 y React Router 7. Rutas disponibles:
+
+| Ruta | Pantalla |
+| --- | --- |
+| `/` | Bienvenida pública. Enlaza a iniciar sesión o al panel del usuario. |
+| `/login` | Inicio de sesión público. Una sesión válida redirige al panel de su rol. |
+| `/operator` | Solo `OPERADOR`. Panel de operación (carriles de entrada y salida, caja). |
+| `/admin` | Solo `ADMIN`. Panel de administración (tarifas, cupos, consultas). |
+| `/vehicles/classify` | Solo `OPERADOR`. Clasificación de una placa mediante el backend. `/classify` redirige aquí. |
+
+Los paneles `/operator` y `/admin` comparten el diseño `AppLayout` (barra de navegación). Los módulos que todavía no existen aparecen como **Pendiente** con la historia de usuario que los implementará. Las rutas protegidas consultan la sesión al cargar. HTTP 401 vuelve al inicio de sesión y HTTP 403 muestra acceso denegado y mantiene la sesión. El cierre de sesión se realiza desde la navegación del panel.
 
 ## Requisitos
 
@@ -20,25 +30,30 @@ Abrir la URL que indique Vite, normalmente `http://localhost:5173/`. Otros coman
 ```sh
 npm run build    # Comprueba TypeScript y genera dist/
 npm run preview  # Sirve la compilación localmente
-npm run test     # Prueba técnica de renderizado de la ruta /
+npm run test     # Pruebas de rutas y del cliente HTTP
 ```
 
 ## Estructura
 
-- `src/app/router/`: rutas de la aplicación.
+- `src/app/config/env.ts`: lectura de `VITE_API_BASE_URL`.
+- `src/app/router/`: rutas de la aplicación (`routes.ts` centraliza las rutas).
+- `src/services/httpClient.ts`: cliente HTTP único; agrega la URL base, envía JSON y convierte los errores del backend (`{ code, message }`) en `ApiError`.
+- `src/components/layout/AppLayout.tsx` y `src/components/ui/ModuleCard.tsx`: componentes reutilizables.
 - `src/features/home/`: pantalla inicial.
-- `src/features/vehicles/`: formulario y cliente HTTP de clasificación.
+- `src/features/parking/`: panel de operador.
+- `src/features/administration/`: panel de administración.
+- `src/features/vehicles/`: formulario y API de clasificación.
 - `src/styles/`: estilos globales y entrada de Tailwind CSS.
-- `src/tests/`: prueba técnica de renderizado.
-- `src/components/`, `hooks/`, `services/`, `types/` y `utils/`: espacios para responsabilidades futuras; aún no contienen código funcional.
+- `src/tests/`: pruebas de rutas, cliente HTTP y clasificación.
+- `src/hooks/`, `types/` y `utils/`: espacios para responsabilidades futuras.
 
-`VITE_API_BASE_URL` indica la URL base del backend y vale `http://localhost:8080` por defecto. Puedes copiar `.env.example` a `.env.local` para cambiarla. Arranca también el backend y configura allí `FRONTEND_ORIGIN` con el origen de Vite si difiere de `http://localhost:5173`. La clasificación no guarda datos ni implementa ingreso, salida o autenticación.
+`VITE_API_BASE_URL` indica la URL base del backend y vale `http://localhost:8080` por defecto. Puedes copiar `.env.example` a `.env.local` para cambiarla. Arranca también el backend y configura allí `FRONTEND_ORIGIN` con el origen de Vite si difiere de `http://localhost:5173`. El cliente HTTP incluye la cookie de sesión y solicita el token CSRF para las escrituras. Usa el mismo nombre de host para el frontend y el backend, por ejemplo, `localhost` en los dos.
 
 ## Usar la clasificación con el backend
 
 1. Desde la raíz del repositorio, ejecuta `mvn -f backend/pom.xml spring-boot:run`.
 2. En otra terminal, desde `frontend/`, ejecuta `npm run dev`.
-3. Abre `http://localhost:5173/vehicles/classify`, escribe una placa y pulsa **Clasificar vehículo**.
+3. Crea una cuenta `OPERADOR` siguiendo el [README del backend](../backend/README.md#preparar-postgresql-y-crear-cuentas-de-prueba). Inicia sesión y abre `/vehicles/classify`, escribe una placa y pulsa **Clasificar vehículo**.
 
 El formulario envía `POST /api/v1/vehicles/classify` con JSON `{"plate":"ABC123"}`. Muestra la placa normalizada y el tipo de la respuesta real (`{"plate":"ABC123","type":"CARRO"}`), o el mensaje de error recibido. La validación y clasificación se realizan en el backend. Reinicia Vite si cambias `VITE_API_BASE_URL`.
 

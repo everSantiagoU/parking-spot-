@@ -3,9 +3,17 @@ import { classifyVehicle } from '../features/vehicles/classificationApi'
 
 afterEach(() => vi.unstubAllGlobals())
 
+function withCsrf(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ headerName: 'X-CSRF-TOKEN', token: 'test-token' }),
+  })
+}
+
+
 describe('cliente de clasificación', () => {
   it('envía la placa y devuelve la clasificación del backend', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = withCsrf(vi.fn()).mockResolvedValue({
       ok: true,
       json: async () => ({ plate: 'ABC123', type: 'CARRO' }),
     })
@@ -19,7 +27,7 @@ describe('cliente de clasificación', () => {
   })
 
   it('muestra el error informado por el backend', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    vi.stubGlobal('fetch', withCsrf(vi.fn()).mockResolvedValue({
       ok: false,
       json: async () => ({ code: 'INVALID_PLATE', message: 'Placa inválida' }),
     }))
