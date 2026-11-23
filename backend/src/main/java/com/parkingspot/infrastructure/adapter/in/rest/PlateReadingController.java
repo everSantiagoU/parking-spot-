@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/plate-readings")
-@CrossOrigin(origins = "${FRONTEND_ORIGIN:http://localhost:5173}")
 public class PlateReadingController {
     private final ReadPlateUseCase readPlate;
 
@@ -45,7 +43,15 @@ public class PlateReadingController {
                                             {"code":"INVALID_PLATE","message":"La placa debe tener el formato ABC123 (carro) o ABC12D (moto)."}"""),
                                     @ExampleObject(name = "INVALID_REQUEST", value = """
                                             {"code":"INVALID_REQUEST","message":"La solicitud debe contener un JSON válido."}""")
-                            }))
+                            })),
+                    @ApiResponse(responseCode = "401", description = "Sin sesión, o sesión inválida o expirada",
+                            content = @Content),
+                    @ApiResponse(responseCode = "403",
+                            description = "La sesión no tiene el rol OPERADOR o falta el token CSRF",
+                            content = @Content(mediaType = "application/json",
+                                    schema = @Schema(implementation = ErrorResponse.class), examples =
+                                    @ExampleObject(name = "ACCESS_DENIED", value = """
+                                            {"code":"ACCESS_DENIED","message":"Acceso denegado."}""")))
             })
     public PlateReadingResponse simulate(@RequestBody SimulatedReadingRequest request) {
         var reading = readPlate.read(new PlateCapture(request.plate(), request.confidence()));

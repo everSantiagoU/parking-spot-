@@ -15,7 +15,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Evidencia de que el endpoint del simulador queda documentado en OpenAPI/Swagger:
  * método, cuerpo, respuestas 200 y 400 y ejemplos de cada código de error.
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+        // Igual que AuthenticationTest: H2 en memoria para no depender de PostgreSQL al levantar el contexto.
+        "spring.datasource.url=jdbc:h2:mem:apidocs;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.flyway.enabled=false"
+})
 @AutoConfigureMockMvc
 class PlateReadingApiDocsTest {
     private static final String OPERATION = "$.paths['/api/v1/plate-readings/simulate'].post";
@@ -39,6 +43,9 @@ class PlateReadingApiDocsTest {
                 .andExpect(jsonPath(ERROR_EXAMPLES + ".INVALID_CONFIDENCE.value.code").value("INVALID_CONFIDENCE"))
                 .andExpect(jsonPath(ERROR_EXAMPLES + ".INVALID_PLATE.value.code").value("INVALID_PLATE"))
                 .andExpect(jsonPath(ERROR_EXAMPLES + ".INVALID_REQUEST.value.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath(OPERATION + ".responses['401'].description").exists())
+                .andExpect(jsonPath(OPERATION + ".responses['403'].content['application/json'].examples.ACCESS_DENIED.value.code")
+                        .value("ACCESS_DENIED"))
                 .andExpect(jsonPath("$.components.schemas.SimulatedReadingRequest.properties.confidence.minimum").value(0))
                 .andExpect(jsonPath("$.components.schemas.SimulatedReadingRequest.properties.confidence.maximum").value(1))
                 .andExpect(jsonPath("$.components.schemas.SimulatedReadingRequest.required").value(hasItem("confidence")))
