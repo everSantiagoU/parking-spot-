@@ -38,6 +38,14 @@ Para compilar sin ejecutar pruebas:
 mvn -f backend/pom.xml -DskipTests compile
 ```
 
+## Pruebas
+
+```sh
+mvn -f backend/pom.xml test
+```
+
+`DatabaseMigrationTest` levanta un PostgreSQL 16 real con Testcontainers y verifica las migraciones y las restricciones (HU-05). Necesita Docker Desktop encendido; si Docker no está disponible, esas pruebas se omiten y las demás se ejecutan igual.
+
 ## Configuración
 
 `backend/.env.example` documenta las variables. Spring Boot lee las variables exportadas en el entorno del proceso; no carga el archivo `.env` por sí solo.
@@ -51,7 +59,16 @@ mvn -f backend/pom.xml -DskipTests compile
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | Origen permitido por CORS. |
 | `TZ` | `America/Bogota` | Zona horaria usada por Hibernate. |
 
-La persistencia usa PostgreSQL y mantiene `ddl-auto: none`. HU-06 consulta `usuarios` y `roles` mediante JDBC y usa `sedes` al crear operadores. El esquema y los datos iniciales proceden de HU-05. `/actuator/health` muestra el componente `db`, así que responde `DOWN` (HTTP 503) si la base no está disponible.
+La persistencia usa Spring Data JPA con el driver de PostgreSQL. `ddl-auto` está en `none`: el esquema lo crean las migraciones de Flyway.
+
+## Base de datos y migraciones (Flyway)
+
+Las migraciones están en `src/main/resources/db/migration` y se aplican solas al arrancar el backend:
+
+- `V1__esquema_inicial.sql`: tablas `roles`, `sedes`, `usuarios`, `franjas`, `tarifas`, `ocupacion`, `cobros`, `pagos` y `eventos`, con sus llaves foráneas, restricciones de unicidad (por ejemplo, un cobro por placa, sede y día operativo) y validaciones (`CHECK`).
+- `V2__datos_iniciales.sql`: roles, sede principal, franjas, tarifas y cupos iniciales.
+
+Nunca modifique una migración ya aplicada: cree una nueva (`V3__descripcion.sql`). El diccionario de datos está en `docs/architecture/modelo-datos.md`. `/actuator/health` muestra el componente `db`, así que responde `DOWN` (HTTP 503) si la base no está disponible.
 
 Springdoc publica `/v3/api-docs` y Swagger UI en el mismo puerto. `springdoc.show-actuator=true` incorpora los endpoints de Actuator al esquema; la exposición HTTP de Actuator sigue limitada a `health` en `application.yml` (además de la ruta raíz de enlaces propia de Actuator). 
 
