@@ -29,6 +29,9 @@ class EntryApiDocsTest {
                 .andExpect(jsonPath(operation + ".responses['401']").exists())
                 .andExpect(jsonPath(operation + ".responses['403'].content['application/json'].examples.ACCESS_DENIED")
                         .exists())
-                .andExpect(jsonPath(operation + ".responses['409']").exists());
+                .andExpect(jsonPath(operation + ".responses['409'].content['application/json'].examples.LLENO.value.resultado")
+                        .value("LLENO"))
+                .andExpect(jsonPath(operation + ".responses['409'].content['application/json'].examples.LLENO.value.barreraAbierta")
+                        .value(false));
     }
 }

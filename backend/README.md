@@ -167,3 +167,17 @@ En una sola transacción se inserta la fila en `eventos` y se suma 1 a `ocupacio
 | `ocurrido_en` | Hora del servidor (`java.time.Clock`), nunca de la petición. |
 
 Si la sede no tiene una fila en `ocupacion` para ese tipo de vehículo, la API responde 409 con `code` `OCCUPANCY_NOT_CONFIGURED` y no guarda nada.
+
+## Validar cupos antes de abrir la entrada (HU-13)
+
+Antes de registrar un ingreso aceptado, el backend valida el cupo del tipo de vehículo en la sede del operador con los datos de `ocupacion` (`capacidad`, que administra la HU-12, y `ocupados`). Sin cupo, las rutas de ingreso responden **409** con `resultado` `LLENO`, `barreraAbierta` `false` y el `eventoId` del intento, que queda guardado en `eventos` con `resultado` `RECHAZADO` y `motivo` `LLENO`. Los carros llenos no bloquean a las motos, ni al revés.
+
+La verificación y el incremento son una sola sentencia atómica, dentro de la misma transacción que guarda el evento:
+
+```sql
+UPDATE ocupacion SET ocupados = ocupados + 1
+WHERE sede_id = ? AND tipo_vehiculo = ? AND ocupados < capacidad;
+-- 1 fila → AUTORIZADO; 0 filas → LLENO
+```
+
+La base de datos bloquea la fila mientras la actualiza. Si dos ingresos compiten por el último cupo, el segundo espera y evalúa `ocupados < capacidad` sobre el valor ya confirmado, así que afecta 0 filas. El `CHECK (ocupados <= capacidad)` de la HU-05 es una segunda barrera. `ConcurrentEntryTest` lanza 20 ingresos simultáneos contra 5 cupos y comprueba que siempre se autorizan exactamente 5.
