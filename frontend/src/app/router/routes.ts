@@ -8,6 +8,7 @@ export const ROUTES = {
   admin: '/admin',
   classifyVehicle: '/vehicles/classify',
   charges: '/operator/charges',
+  parkingConfiguration: '/admin/configuration',
 } as const
 
 export function panelForRole(role: Role) {
