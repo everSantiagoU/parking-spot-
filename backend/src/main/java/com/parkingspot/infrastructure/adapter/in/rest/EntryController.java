@@ -25,6 +25,7 @@ import java.time.Instant;
 /**
  * Carril de entrada. La sede y el usuario salen del operador autenticado.
  * HU-11: valida la confianza y permite la lectura manual. HU-10: registra el evento de ingreso.
+ * HU-13: valida el cupo antes de abrir la barrera.
  */
 @RestController
 @RequestMapping("/api/v1/entries")
@@ -45,6 +46,13 @@ public class EntryController {
             {"resultado":"REQUIERE_VALIDACION","motivo":"FORMATO_INVALIDO","barreraAbierta":false,"eventoId":null,\
             "sedeId":null,"ocurridoEn":null,"readText":"AB123","plate":null,"vehicleType":null,"confidence":0.97,\
             "source":"SIMULADOR","operador":"operador1"}""";
+    private static final String FULL_EXAMPLE = """
+            {"resultado":"LLENO","motivo":"LLENO","barreraAbierta":false,"eventoId":17,"sedeId":1,\
+            "ocurridoEn":"2026-11-24T18:47:00Z","readText":"ABC123","plate":"ABC123","vehicleType":"CARRO",\
+            "confidence":0.93,"source":"SIMULADOR","operador":"operador1"}""";
+    private static final String FULL_DESCRIPTION = "LLENO: no hay cupo para ese tipo de vehículo en la sede. La "
+            + "barrera sigue cerrada y el intento queda guardado como RECHAZADO (cuerpo EntryResponse). También 409 "
+            + "OCCUPANCY_NOT_CONFIGURED si la sede no tiene cupos para ese tipo (cuerpo ErrorResponse).";
     private static final String ACCESS_DENIED = """
             {"code":"ACCESS_DENIED","message":"Acceso denegado."}""";
     private static final String OPERATOR_NOT_AVAILABLE = """
@@ -65,8 +73,9 @@ public class EntryController {
             summary = "Registra el ingreso a partir de la lectura automática",
             description = "El lector (hoy, el simulador de la HU-08) entrega la placa y la confianza. Si el formato es "
                     + "inválido o la confianza es menor que el umbral configurado, responde 200 REQUIERE_VALIDACION "
-                    + "y no registra nada: el operador debe usar /api/v1/entries/manual. Si no, guarda el evento de "
-                    + "ingreso con la hora del servidor, actualiza la ocupación y responde 201 AUTORIZADO.",
+                    + "y no registra nada: el operador debe usar /api/v1/entries/manual. Si no, valida el cupo del tipo "
+                    + "de vehículo en la sede: con cupo guarda el evento con la hora del servidor, ocupa el cupo y "
+                    + "responde 201 AUTORIZADO; sin cupo responde 409 LLENO y la barrera sigue cerrada.",
             responses = {
                     @ApiResponse(responseCode = "201", description = "Ingreso AUTORIZADO y registrado; la barrera se abre",
                             content = @Content(mediaType = "application/json",
@@ -95,11 +104,12 @@ public class EntryController {
                                     @ExampleObject(name = "ACCESS_DENIED", value = ACCESS_DENIED),
                                     @ExampleObject(name = "OPERATOR_NOT_AVAILABLE", value = OPERATOR_NOT_AVAILABLE)
                             })),
-                    @ApiResponse(responseCode = "409", description = "La sede no tiene cupos configurados para ese tipo",
+                    @ApiResponse(responseCode = "409", description = FULL_DESCRIPTION,
                             content = @Content(mediaType = "application/json",
-                                    schema = @Schema(implementation = ErrorResponse.class),
-                                    examples = @ExampleObject(name = "OCCUPANCY_NOT_CONFIGURED",
-                                            value = OCCUPANCY_NOT_CONFIGURED)))
+                                    schema = @Schema(oneOf = {EntryResponse.class, ErrorResponse.class}), examples = {
+                                    @ExampleObject(name = "LLENO", value = FULL_EXAMPLE),
+                                    @ExampleObject(name = "OCCUPANCY_NOT_CONFIGURED", value = OCCUPANCY_NOT_CONFIGURED)
+                            }))
             })
     public ResponseEntity<EntryResponse> automatic(@RequestBody AutomaticEntryRequest request, Principal principal) {
         return respond(registerEntry.enterAutomatic(
@@ -111,7 +121,7 @@ public class EntryController {
             summary = "Registra el ingreso con la placa digitada o confirmada por el operador",
             description = "El operador digita o confirma la placa que ve en el carril (por ejemplo, después de un "
                     + "REQUIERE_VALIDACION). El evento queda con origen MANUAL, sin confianza y con el usuario del "
-                    + "operador autenticado.",
+                    + "operador autenticado. También valida el cupo: sin cupo responde 409 LLENO.",
             responses = {
                     @ApiResponse(responseCode = "201", description = "Ingreso AUTORIZADO y registrado; la barrera se abre",
                             content = @Content(mediaType = "application/json",
@@ -133,18 +143,23 @@ public class EntryController {
                                     @ExampleObject(name = "ACCESS_DENIED", value = ACCESS_DENIED),
                                     @ExampleObject(name = "OPERATOR_NOT_AVAILABLE", value = OPERATOR_NOT_AVAILABLE)
                             })),
-                    @ApiResponse(responseCode = "409", description = "La sede no tiene cupos configurados para ese tipo",
+                    @ApiResponse(responseCode = "409", description = FULL_DESCRIPTION,
                             content = @Content(mediaType = "application/json",
-                                    schema = @Schema(implementation = ErrorResponse.class),
-                                    examples = @ExampleObject(name = "OCCUPANCY_NOT_CONFIGURED",
-                                            value = OCCUPANCY_NOT_CONFIGURED)))
+                                    schema = @Schema(oneOf = {EntryResponse.class, ErrorResponse.class}), examples = {
+                                    @ExampleObject(name = "LLENO", value = FULL_EXAMPLE),
+                                    @ExampleObject(name = "OCCUPANCY_NOT_CONFIGURED", value = OCCUPANCY_NOT_CONFIGURED)
+                            }))
             })
     public ResponseEntity<EntryResponse> manual(@RequestBody ManualEntryRequest request, Principal principal) {
         return respond(registerEntry.enterManual(request.plate(), principal.getName()));
     }
 
     private static ResponseEntity<EntryResponse> respond(EntryAttempt attempt) {
-        var status = attempt.outcome() == EntryOutcome.AUTORIZADO ? HttpStatus.CREATED : HttpStatus.OK;
+        var status = switch (attempt.outcome()) {
+            case AUTORIZADO -> HttpStatus.CREATED;
+            case REQUIERE_VALIDACION -> HttpStatus.OK;
+            case LLENO -> HttpStatus.CONFLICT;
+        };
         return ResponseEntity.status(status).body(EntryResponse.from(attempt));
     }
 
