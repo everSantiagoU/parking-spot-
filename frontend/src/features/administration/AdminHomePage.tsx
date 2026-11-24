@@ -1,7 +1,13 @@
 import { ModuleCard, type ModuleCardProps } from '../../components/ui/ModuleCard'
+import { ROUTES } from '../../app/router/routes'
 
 const ADMIN_MODULES: ModuleCardProps[] = [
-  { title: 'Tarifas y franjas', description: 'Configura tarifas por tipo de vehículo y horarios de franja.', story: 'HU-12' },
+ {
+  title: 'Tarifas, franjas y cupos',
+  description: 'Administra valores, horarios y capacidad por tipo de vehículo.',
+  story: 'HU-12',
+  to: ROUTES.parkingConfiguration,
+},
   { title: 'Cupos', description: 'Define la capacidad por tipo de vehículo en la sede.', story: 'HU-12' },
   { title: 'Eventos y cobros', description: 'Consulta ingresos, salidas y cobros con filtros.', story: 'HU-17' },
 ]
