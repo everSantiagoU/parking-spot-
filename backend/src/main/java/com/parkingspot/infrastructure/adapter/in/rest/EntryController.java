@@ -1,12 +1,10 @@
 package com.parkingspot.infrastructure.adapter.in.rest;
 
-import com.parkingspot.application.usecase.ValidateEntryReadingUseCase;
-import com.parkingspot.domain.model.AcceptedReading;
+import com.parkingspot.application.usecase.RegisterEntryUseCase;
+import com.parkingspot.domain.model.EntryAttempt;
+import com.parkingspot.domain.model.EntryOutcome;
 import com.parkingspot.domain.model.PlateCapture;
-import com.parkingspot.domain.model.ReadingEvaluation;
 import com.parkingspot.domain.model.ReadingSource;
-import com.parkingspot.domain.model.ValidationReason;
-import com.parkingspot.domain.model.ValidationStatus;
 import com.parkingspot.domain.model.VehicleType;
 import com.parkingspot.infrastructure.adapter.in.rest.ClassificationErrorHandler.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,55 +12,79 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
+import java.time.Instant;
 
 /**
- * Flujo de ingreso de un vehículo. La sede y el usuario salen del operador autenticado.
- * HU-11: valida la confianza y permite la confirmación manual de la placa.
+ * Carril de entrada. La sede y el usuario salen del operador autenticado.
+ * HU-11: valida la confianza y permite la lectura manual. HU-10: registra el evento de ingreso.
  */
 @RestController
 @RequestMapping("/api/v1/entries")
 public class EntryController {
-    private final ValidateEntryReadingUseCase validateReading;
+    private static final String AUTHORIZED_EXAMPLE = """
+            {"resultado":"AUTORIZADO","motivo":null,"barreraAbierta":true,"eventoId":15,"sedeId":1,\
+            "ocurridoEn":"2026-11-24T18:45:00Z","readText":"ABC123","plate":"ABC123","vehicleType":"CARRO",\
+            "confidence":0.93,"source":"SIMULADOR","operador":"operador1"}""";
+    private static final String MANUAL_EXAMPLE = """
+            {"resultado":"AUTORIZADO","motivo":null,"barreraAbierta":true,"eventoId":16,"sedeId":1,\
+            "ocurridoEn":"2026-11-24T18:46:00Z","readText":"ABC12D","plate":"ABC12D","vehicleType":"MOTO",\
+            "confidence":null,"source":"MANUAL","operador":"operador1"}""";
+    private static final String LOW_CONFIDENCE_EXAMPLE = """
+            {"resultado":"REQUIERE_VALIDACION","motivo":"CONFIANZA_BAJA","barreraAbierta":false,"eventoId":null,\
+            "sedeId":null,"ocurridoEn":null,"readText":"ABC123","plate":"ABC123","vehicleType":"CARRO",\
+            "confidence":0.42,"source":"SIMULADOR","operador":"operador1"}""";
+    private static final String INVALID_FORMAT_EXAMPLE = """
+            {"resultado":"REQUIERE_VALIDACION","motivo":"FORMATO_INVALIDO","barreraAbierta":false,"eventoId":null,\
+            "sedeId":null,"ocurridoEn":null,"readText":"AB123","plate":null,"vehicleType":null,"confidence":0.97,\
+            "source":"SIMULADOR","operador":"operador1"}""";
+    private static final String ACCESS_DENIED = """
+            {"code":"ACCESS_DENIED","message":"Acceso denegado."}""";
+    private static final String OPERATOR_NOT_AVAILABLE = """
+            {"code":"OPERATOR_NOT_AVAILABLE","message":"El operador no está activo o no tiene una sede asignada."}""";
+    private static final String OCCUPANCY_NOT_CONFIGURED = """
+            {"code":"OCCUPANCY_NOT_CONFIGURED","message":"La sede 1 no tiene cupos configurados para CARRO."}""";
+    private static final String INVALID_REQUEST = """
+            {"code":"INVALID_REQUEST","message":"La solicitud debe contener un JSON válido."}""";
 
-    public EntryController(ValidateEntryReadingUseCase validateReading) {
-        this.validateReading = validateReading;
+    private final RegisterEntryUseCase registerEntry;
+
+    public EntryController(RegisterEntryUseCase registerEntry) {
+        this.registerEntry = registerEntry;
     }
 
     @PostMapping("/automatic")
     @Operation(
-            summary = "Valida la lectura automática de una placa",
+            summary = "Registra el ingreso a partir de la lectura automática",
             description = "El lector (hoy, el simulador de la HU-08) entrega la placa y la confianza. Si el formato es "
-                    + "inválido o la confianza es menor que el umbral configurado, responde REQUIERE_VALIDACION y no "
-                    + "registra la entrada: el operador debe usar /api/v1/entries/manual. Si no, responde ACEPTADA.",
+                    + "inválido o la confianza es menor que el umbral configurado, responde 200 REQUIERE_VALIDACION "
+                    + "y no registra nada: el operador debe usar /api/v1/entries/manual. Si no, guarda el evento de "
+                    + "ingreso con la hora del servidor, actualiza la ocupación y responde 201 AUTORIZADO.",
             responses = {
-                    @ApiResponse(responseCode = "200", description = "ACEPTADA o REQUIERE_VALIDACION",
+                    @ApiResponse(responseCode = "201", description = "Ingreso AUTORIZADO y registrado; la barrera se abre",
+                            content = @Content(mediaType = "application/json",
+                                    schema = @Schema(implementation = EntryResponse.class),
+                                    examples = @ExampleObject(name = "AUTORIZADO", value = AUTHORIZED_EXAMPLE))),
+                    @ApiResponse(responseCode = "200", description = "REQUIERE_VALIDACION: no se registra la entrada "
+                            + "y la barrera sigue cerrada",
                             content = @Content(mediaType = "application/json",
                                     schema = @Schema(implementation = EntryResponse.class), examples = {
-                                    @ExampleObject(name = "ACEPTADA", value = """
-                                            {"resultado":"ACEPTADA","motivo":null,"readText":"ABC123","plate":"ABC123",\
-                                            "vehicleType":"CARRO","confidence":0.93,"source":"SIMULADOR","operador":"operador1"}"""),
-                                    @ExampleObject(name = "REQUIERE_VALIDACION", value = """
-                                            {"resultado":"REQUIERE_VALIDACION","motivo":"CONFIANZA_BAJA","readText":"ABC123",\
-                                            "plate":"ABC123","vehicleType":"CARRO","confidence":0.42,"source":"SIMULADOR",\
-                                            "operador":"operador1"}"""),
-                                    @ExampleObject(name = "FORMATO_INVALIDO", value = """
-                                            {"resultado":"REQUIERE_VALIDACION","motivo":"FORMATO_INVALIDO","readText":"AB123",\
-                                            "plate":null,"vehicleType":null,"confidence":0.97,"source":"SIMULADOR",\
-                                            "operador":"operador1"}""")
+                                    @ExampleObject(name = "CONFIANZA_BAJA", value = LOW_CONFIDENCE_EXAMPLE),
+                                    @ExampleObject(name = "FORMATO_INVALIDO", value = INVALID_FORMAT_EXAMPLE)
                             })),
                     @ApiResponse(responseCode = "400", description = "Confianza fuera de [0, 1] o ausente, o JSON mal formado",
                             content = @Content(mediaType = "application/json",
                                     schema = @Schema(implementation = ErrorResponse.class), examples = {
                                     @ExampleObject(name = "INVALID_CONFIDENCE", value = """
                                             {"code":"INVALID_CONFIDENCE","message":"La confianza debe ser un número entre 0 y 1."}"""),
-                                    @ExampleObject(name = "INVALID_REQUEST", value = """
-                                            {"code":"INVALID_REQUEST","message":"La solicitud debe contener un JSON válido."}""")
+                                    @ExampleObject(name = "INVALID_REQUEST", value = INVALID_REQUEST)
                             })),
                     @ApiResponse(responseCode = "401", description = "Sin sesión, o sesión inválida o expirada",
                             content = @Content),
@@ -70,37 +92,37 @@ public class EntryController {
                             + "u operador inactivo o sin sede",
                             content = @Content(mediaType = "application/json",
                                     schema = @Schema(implementation = ErrorResponse.class), examples = {
-                                    @ExampleObject(name = "ACCESS_DENIED", value = """
-                                            {"code":"ACCESS_DENIED","message":"Acceso denegado."}"""),
-                                    @ExampleObject(name = "OPERATOR_NOT_AVAILABLE", value = """
-                                            {"code":"OPERATOR_NOT_AVAILABLE","message":"El operador no está activo o no tiene una sede asignada."}""")
-                            }))
+                                    @ExampleObject(name = "ACCESS_DENIED", value = ACCESS_DENIED),
+                                    @ExampleObject(name = "OPERATOR_NOT_AVAILABLE", value = OPERATOR_NOT_AVAILABLE)
+                            })),
+                    @ApiResponse(responseCode = "409", description = "La sede no tiene cupos configurados para ese tipo",
+                            content = @Content(mediaType = "application/json",
+                                    schema = @Schema(implementation = ErrorResponse.class),
+                                    examples = @ExampleObject(name = "OCCUPANCY_NOT_CONFIGURED",
+                                            value = OCCUPANCY_NOT_CONFIGURED)))
             })
-    public EntryResponse automatic(@RequestBody AutomaticEntryRequest request, Principal principal) {
-        var evaluation = validateReading.validateAutomatic(
-                new PlateCapture(request.plate(), request.confidence()), principal.getName());
-        return EntryResponse.from(evaluation, principal.getName());
+    public ResponseEntity<EntryResponse> automatic(@RequestBody AutomaticEntryRequest request, Principal principal) {
+        return respond(registerEntry.enterAutomatic(
+                new PlateCapture(request.plate(), request.confidence()), principal.getName()));
     }
 
     @PostMapping("/manual")
     @Operation(
-            summary = "Confirma o digita la placa manualmente",
-            description = "El operador digita o confirma la placa que ve en el carril. La lectura queda con origen "
-                    + "MANUAL, sin confianza y asociada al operador autenticado.",
+            summary = "Registra el ingreso con la placa digitada o confirmada por el operador",
+            description = "El operador digita o confirma la placa que ve en el carril (por ejemplo, después de un "
+                    + "REQUIERE_VALIDACION). El evento queda con origen MANUAL, sin confianza y con el usuario del "
+                    + "operador autenticado.",
             responses = {
-                    @ApiResponse(responseCode = "200", description = "Lectura manual aceptada",
+                    @ApiResponse(responseCode = "201", description = "Ingreso AUTORIZADO y registrado; la barrera se abre",
                             content = @Content(mediaType = "application/json",
-                                    schema = @Schema(implementation = EntryResponse.class), examples =
-                                    @ExampleObject(name = "MANUAL", value = """
-                                            {"resultado":"ACEPTADA","motivo":null,"readText":"ABC12D","plate":"ABC12D",\
-                                            "vehicleType":"MOTO","confidence":null,"source":"MANUAL","operador":"operador1"}"""))),
+                                    schema = @Schema(implementation = EntryResponse.class),
+                                    examples = @ExampleObject(name = "MANUAL", value = MANUAL_EXAMPLE))),
                     @ApiResponse(responseCode = "400", description = "Placa con formato inválido o JSON mal formado",
                             content = @Content(mediaType = "application/json",
                                     schema = @Schema(implementation = ErrorResponse.class), examples = {
                                     @ExampleObject(name = "INVALID_PLATE", value = """
                                             {"code":"INVALID_PLATE","message":"La placa debe tener el formato ABC123 (carro) o ABC12D (moto)."}"""),
-                                    @ExampleObject(name = "INVALID_REQUEST", value = """
-                                            {"code":"INVALID_REQUEST","message":"La solicitud debe contener un JSON válido."}""")
+                                    @ExampleObject(name = "INVALID_REQUEST", value = INVALID_REQUEST)
                             })),
                     @ApiResponse(responseCode = "401", description = "Sin sesión, o sesión inválida o expirada",
                             content = @Content),
@@ -108,15 +130,22 @@ public class EntryController {
                             + "u operador inactivo o sin sede",
                             content = @Content(mediaType = "application/json",
                                     schema = @Schema(implementation = ErrorResponse.class), examples = {
-                                    @ExampleObject(name = "ACCESS_DENIED", value = """
-                                            {"code":"ACCESS_DENIED","message":"Acceso denegado."}"""),
-                                    @ExampleObject(name = "OPERATOR_NOT_AVAILABLE", value = """
-                                            {"code":"OPERATOR_NOT_AVAILABLE","message":"El operador no está activo o no tiene una sede asignada."}""")
-                            }))
+                                    @ExampleObject(name = "ACCESS_DENIED", value = ACCESS_DENIED),
+                                    @ExampleObject(name = "OPERATOR_NOT_AVAILABLE", value = OPERATOR_NOT_AVAILABLE)
+                            })),
+                    @ApiResponse(responseCode = "409", description = "La sede no tiene cupos configurados para ese tipo",
+                            content = @Content(mediaType = "application/json",
+                                    schema = @Schema(implementation = ErrorResponse.class),
+                                    examples = @ExampleObject(name = "OCCUPANCY_NOT_CONFIGURED",
+                                            value = OCCUPANCY_NOT_CONFIGURED)))
             })
-    public EntryResponse manual(@RequestBody ManualEntryRequest request, Principal principal) {
-        var accepted = validateReading.confirmManual(request.plate(), principal.getName());
-        return EntryResponse.from(accepted, request.plate());
+    public ResponseEntity<EntryResponse> manual(@RequestBody ManualEntryRequest request, Principal principal) {
+        return respond(registerEntry.enterManual(request.plate(), principal.getName()));
+    }
+
+    private static ResponseEntity<EntryResponse> respond(EntryAttempt attempt) {
+        var status = attempt.outcome() == EntryOutcome.AUTORIZADO ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(EntryResponse.from(attempt));
     }
 
     @Schema(description = "Lectura que entrega el lector de placas")
@@ -135,10 +164,15 @@ public class EntryController {
             String plate) {
     }
 
-    @Schema(description = "Resultado de la lectura en el carril de entrada")
+    @Schema(description = "Resultado del intento de ingreso en el carril")
     public record EntryResponse(
-            @Schema(example = "ACEPTADA") ValidationStatus resultado,
-            @Schema(description = "Motivo cuando requiere validación", example = "CONFIANZA_BAJA") ValidationReason motivo,
+            @Schema(example = "AUTORIZADO") EntryOutcome resultado,
+            @Schema(description = "Motivo cuando no se autoriza", example = "CONFIANZA_BAJA") String motivo,
+            @Schema(description = "true solo si la entrada se autorizó", example = "true") boolean barreraAbierta,
+            @Schema(description = "Evento guardado; null si no se registró", example = "15") Long eventoId,
+            @Schema(description = "Sede del operador; null si no se registró", example = "1") Long sedeId,
+            @Schema(description = "Hora del servidor del evento; null si no se registró",
+                    example = "2026-11-24T18:45:00Z") Instant ocurridoEn,
             @Schema(description = "Texto tal como lo entregó el lector o el operador", example = "ABC123") String readText,
             @Schema(description = "Placa normalizada; null si el formato es inválido", example = "ABC123") String plate,
             @Schema(example = "CARRO") VehicleType vehicleType,
@@ -146,16 +180,11 @@ public class EntryController {
             @Schema(example = "SIMULADOR") ReadingSource source,
             @Schema(description = "Usuario del operador autenticado", example = "operador1") String operador) {
 
-        static EntryResponse from(ReadingEvaluation evaluation, String operator) {
-            return new EntryResponse(evaluation.status(), evaluation.reason(), evaluation.readText(),
-                    evaluation.plate(), evaluation.type(), evaluation.confidence().value(), evaluation.source(),
-                    operator);
-        }
-
-        static EntryResponse from(AcceptedReading accepted, String typedText) {
-            return new EntryResponse(ValidationStatus.ACEPTADA, null, typedText, accepted.plate(), accepted.type(),
-                    accepted.confidence() == null ? null : accepted.confidence().value(), accepted.source(),
-                    accepted.operator().username());
+        static EntryResponse from(EntryAttempt attempt) {
+            return new EntryResponse(attempt.outcome(), attempt.reason(), attempt.barrierOpen(), attempt.eventId(),
+                    attempt.siteId(), attempt.occurredAt(), attempt.readText(), attempt.plate(), attempt.type(),
+                    attempt.confidence() == null ? null : attempt.confidence().value(), attempt.source(),
+                    attempt.operatorUsername());
         }
     }
 }
