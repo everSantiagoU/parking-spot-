@@ -50,6 +50,20 @@ class EntryEventTest {
         assertEquals(7, event.userId());
     }
 
+    // HU-13: sin cupo, el intento queda RECHAZADO con motivo LLENO, en la sede y con el usuario.
+    @Test
+    void rejectedFullEventKeepsTraceability() {
+        var reading = new PlateReading("ABC123", VehicleType.CARRO, new Confidence(0.93), ReadingSource.SIMULADOR);
+        var event = EntryEvent.rejectedFull(
+                AcceptedReading.automatic(reading, new ConfidenceThreshold(0.8), OPERATOR), NOW);
+
+        assertEquals(EntryResult.RECHAZADO, event.result());
+        assertEquals("LLENO", event.reason());
+        assertEquals(3, event.siteId());
+        assertEquals(7, event.userId());
+        assertEquals(NOW, event.occurredAt());
+    }
+
     @Test
     void manualEventCannotCarryReaderConfidence() {
         assertThrows(IllegalArgumentException.class, () -> new EntryEvent(3, "ABC123", VehicleType.CARRO,

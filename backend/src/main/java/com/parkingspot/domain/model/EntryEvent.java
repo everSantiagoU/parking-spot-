@@ -26,9 +26,21 @@ public record EntryEvent(long siteId, String plate, VehicleType type, ReadingSou
         }
     }
 
+    /** Motivo que queda en eventos.motivo cuando no hay cupo (HU-13). */
+    public static final String FULL_REASON = "LLENO";
+
     /** Ingreso autorizado de una lectura aceptada, en la sede y con el usuario del operador. */
     public static EntryEvent authorized(AcceptedReading reading, Instant occurredAt) {
+        return of(reading, EntryResult.AUTORIZADO, null, occurredAt);
+    }
+
+    /** Ingreso rechazado porque no hay cupo para ese tipo de vehículo: queda la trazabilidad del intento. */
+    public static EntryEvent rejectedFull(AcceptedReading reading, Instant occurredAt) {
+        return of(reading, EntryResult.RECHAZADO, FULL_REASON, occurredAt);
+    }
+
+    private static EntryEvent of(AcceptedReading reading, EntryResult result, String reason, Instant occurredAt) {
         return new EntryEvent(reading.operator().siteId(), reading.plate(), reading.type(), reading.source(),
-                reading.confidence(), EntryResult.AUTORIZADO, null, reading.operator().id(), occurredAt);
+                reading.confidence(), result, reason, reading.operator().id(), occurredAt);
     }
 }

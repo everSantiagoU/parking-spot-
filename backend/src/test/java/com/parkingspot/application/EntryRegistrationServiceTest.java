@@ -101,6 +101,23 @@ class EntryRegistrationServiceTest {
         assertEquals(7, event.userId());
     }
 
+    // HU-13: sin cupo → LLENO, barrera cerrada y el intento queda guardado como RECHAZADO.
+    @Test
+    void fullSiteRejectsEntryKeepsBarrierClosedAndStoresRejectedEvent() {
+        OccupancyRepository full = (siteId, type) -> false;
+
+        var attempt = service(full).enterAutomatic(new PlateCapture("ABC123", 0.93), "operador");
+
+        assertEquals(EntryOutcome.LLENO, attempt.outcome());
+        assertFalse(attempt.barrierOpen());
+        assertEquals("LLENO", attempt.reason());
+        assertEquals(1L, attempt.eventId());
+        var event = savedEvents.get(0);
+        assertEquals(EntryResult.RECHAZADO, event.result());
+        assertEquals("LLENO", event.reason());
+        assertEquals(NOW, event.occurredAt());
+    }
+
     @Test
     void doesNotSaveEventWhenOccupancyIsNotConfigured() {
         OccupancyRepository missing = (siteId, type) -> {

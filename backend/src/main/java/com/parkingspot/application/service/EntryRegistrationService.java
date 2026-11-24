@@ -14,8 +14,8 @@ import com.parkingspot.domain.port.out.OccupancyRepository;
 import java.time.Clock;
 
 /**
- * Registra el ingreso: valida la lectura (HU-11) y, si es una lectura aceptada, guarda el evento
- * y actualiza la ocupación en una sola transacción (HU-10).
+ * Registra el ingreso: valida la lectura (HU-11) y, si es una lectura aceptada, valida el cupo (HU-13),
+ * guarda el evento y actualiza la ocupación en una sola transacción (HU-10).
  */
 public class EntryRegistrationService implements RegisterEntryUseCase {
     private final ValidateEntryReadingUseCase validation;
@@ -48,14 +48,21 @@ public class EntryRegistrationService implements RegisterEntryUseCase {
     }
 
     private EntryAttempt register(String readText, AcceptedReading accepted) {
-        // CA-02: la hora sale del reloj del servidor, nunca de la petición.
-        var event = EntryEvent.authorized(accepted, clock.instant());
+        // HU-10 CA-02: la hora sale del reloj del servidor, nunca de la petición.
+        var now = clock.instant();
+        var operator = accepted.operator();
         return transactions.inTransaction(() -> {
-            // CA-03: una entrada autorizada actualiza la ocupación.
-            occupancy.occupySpot(event.siteId(), event.type());
-            long eventId = events.save(event);
-            return EntryAttempt.registered(EntryOutcome.AUTORIZADO, readText, event, eventId,
-                    accepted.operator().username());
+            // HU-13 CA-01 y CA-04: el cupo se valida por sede y tipo de vehículo, y se ocupa en la misma
+            // operación atómica, así que ingresos simultáneos no superan la capacidad.
+            if (occupancy.occupySpotIfAvailable(operator.siteId(), accepted.type())) {
+                var authorized = EntryEvent.authorized(accepted, now);
+                return EntryAttempt.registered(EntryOutcome.AUTORIZADO, readText, authorized,
+                        events.save(authorized), operator.username());
+            }
+            // HU-13 CA-02 y CA-03: sin cupo → LLENO, la barrera sigue cerrada y el intento queda RECHAZADO.
+            var rejected = EntryEvent.rejectedFull(accepted, now);
+            return EntryAttempt.registered(EntryOutcome.LLENO, readText, rejected, events.save(rejected),
+                    operator.username());
         });
     }
 }
