@@ -40,3 +40,8 @@ management:
       show-components: always
 springdoc:
   show-actuator: true
+parking:
+  entry:
+    # HU-11: una lectura automática con confianza menor que este umbral (0 a 1)
+    # requiere que el operador digite o confirme la placa.
+    confidence-threshold: ${PLATE_CONFIDENCE_THRESHOLD:0.80}

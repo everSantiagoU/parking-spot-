@@ -45,6 +45,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/vehicles/classify").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/plate-readings/simulate").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/entries/automatic").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/entries/manual").hasRole("OPERADOR")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors
