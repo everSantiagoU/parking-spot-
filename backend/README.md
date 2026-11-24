@@ -110,3 +110,22 @@ Arranca la aplicación en modo web con `mvn -f backend/pom.xml spring-boot:run`.
 ### Verificación de tarifas (HU-12)
 
 `mvn -f backend/pom.xml test` prueba `PUT /api/v1/admin/tariffs/1` con un controlador que existe exclusivamente en el contexto de pruebas. Con una sesión válida y CSRF, el operador recibe 403 y el administrador llega al controlador (204). Cuando HU-12 implemente las tarifas, ubica las operaciones administrativas bajo `/api/v1/admin/**` y verifica la misma política para cada método real de modificación, incluida la ausencia de cambios en la base cuando se rechace una solicitud.
+
+## Cobros del día operativo (HU-14 y HU-15)
+
+Endpoints para el rol `OPERADOR`. La sede se toma del usuario autenticado.
+
+| Método | Ruta | Respuesta |
+| --- | --- | --- |
+| `POST` | `/api/v1/charges` con `{"plate":"ABC123"}` | `201` cobro nuevo (`outcome: CREADO`); `200` reingreso (`EXISTENTE`) o vehículo sin obligación de pago (`EXENTO`); `400 INVALID_PLATE`; `422 TARIFA_NO_CONFIGURADA`; `409 OPERADOR_SIN_SEDE` |
+| `GET` | `/api/v1/charges/today?plate=ABC123` | `200` cobro del día operativo actual; `404 COBRO_NO_ENCONTRADO` |
+
+Reglas implementadas:
+
+- **Día operativo (S-02):** de 06:00 a 05:59:59 del día siguiente, en la zona `parking.time-zone` (por defecto `America/Bogota`). Un ingreso a las 03:00 pertenece al día anterior. Lo calcula `OperatingDayCalculator`.
+- **Franja:** se toma de la tabla `franjas` según la hora de ingreso (`TimeSlotResolver`). La franja nocturna cruza la medianoche.
+- **Patrón Strategy:** `TariffStrategy` define la regla de cobro de cada tipo de vehículo. `MotorcycleTariffStrategy` no genera obligación de pago si la tarifa es $0 (RN-01). `CarTariffStrategy` exige una tarifa mayor a $0. Un tipo nuevo solo requiere una estrategia nueva (principio abierto/cerrado).
+- **Tarifa conservada (RN-07):** el cobro guarda `tarifa_aplicada` y `valor`; cambiar la tarifa después no lo altera.
+- **Unicidad y concurrencia:** un solo cobro por placa, sede y día operativo. `JdbcChargeRepository` inserta con `ON CONFLICT ON CONSTRAINT uq_cobros_placa_sede_dia DO NOTHING`, así dos solicitudes simultáneas dejan un único cobro.
+
+Pruebas: `OperatingDayCalculatorTest`, `TimeSlotResolverTest`, `TariffStrategyTest` y `ChargeServiceTest` (unitarias), y `ChargeApiTest` (integración con PostgreSQL real; necesita Docker).
