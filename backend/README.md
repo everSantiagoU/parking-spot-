@@ -149,3 +149,21 @@ Ambas rutas son solo para `OPERADOR`, con sesión y token CSRF. La sede y el usu
 - `POST /api/v1/entries/manual` recibe la placa que el operador digita o confirma, `{"plate":"ABC123"}`. La lectura queda con `source` `MANUAL`, sin confianza y con el usuario del operador (`operador`).
 
 En el dominio, solo una `AcceptedReading` puede continuar al ingreso, y únicamente se crea con una lectura automática que alcanza el umbral o con una confirmación manual. Si el operador está inactivo o no tiene sede, la API responde 403 con `code` `OPERATOR_NOT_AVAILABLE`.
+
+## Registrar eventos de ingreso (HU-10)
+
+Cuando la lectura se acepta (automática sobre el umbral o confirmada manualmente), las mismas rutas registran el ingreso y responden **201** con `resultado` `AUTORIZADO`, `barreraAbierta` `true`, `eventoId`, `sedeId` y `ocurridoEn`. Una lectura que requiere validación responde **200** con `resultado` `REQUIERE_VALIDACION`, `barreraAbierta` `false` y no guarda nada.
+
+En una sola transacción se inserta la fila en `eventos` y se suma 1 a `ocupacion.ocupados` de la sede y el tipo de vehículo:
+
+| Columna de `eventos` | Valor |
+| --- | --- |
+| `sede_id`, `usuario_id` | Sede y usuario del operador autenticado. |
+| `placa`, `tipo_vehiculo` | Placa normalizada y tipo calculado (HU-09). |
+| `tipo_evento` | `INGRESO`. |
+| `origen_lectura` | `AUTOMATICA` para el simulador (`SIMULADOR` en la API) y `MANUAL` para la placa digitada. |
+| `confianza` | Confianza de 0 a 1 multiplicada por 100 (`0.93` → `93.00`); `NULL` si es manual. |
+| `resultado`, `motivo` | `AUTORIZADO` y `NULL`. |
+| `ocurrido_en` | Hora del servidor (`java.time.Clock`), nunca de la petición. |
+
+Si la sede no tiene una fila en `ocupacion` para ese tipo de vehículo, la API responde 409 con `code` `OCCUPANCY_NOT_CONFIGURED` y no guarda nada.
