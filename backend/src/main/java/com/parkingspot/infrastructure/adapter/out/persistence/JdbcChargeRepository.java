@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class JdbcChargeRepository implements ChargeRepository {
-    private static final String COLUMNS = """
+    static final String COLUMNS = """
             id, sede_id, placa, tipo_vehiculo, dia_operativo, franja, tarifa_id,
             tarifa_aplicada, valor, estado, generado_en
             """;
@@ -74,7 +74,7 @@ public class JdbcChargeRepository implements ChargeRepository {
         return new SavedCharge(existing, false);
     }
 
-    private static Charge toCharge(ResultSet row) throws SQLException {
+    static Charge toCharge(ResultSet row) throws SQLException {
         return new Charge(
                 row.getLong("id"),
                 row.getLong("sede_id"),

@@ -129,3 +129,24 @@ Reglas implementadas:
 - **Unicidad y concurrencia:** un solo cobro por placa, sede y día operativo. `JdbcChargeRepository` inserta con `ON CONFLICT ON CONSTRAINT uq_cobros_placa_sede_dia DO NOTHING`, así dos solicitudes simultáneas dejan un único cobro.
 
 Pruebas: `OperatingDayCalculatorTest`, `TimeSlotResolverTest`, `TariffStrategyTest` y `ChargeServiceTest` (unitarias), y `ChargeApiTest` (integración con PostgreSQL real; necesita Docker).
+
+## Pago en efectivo idempotente (HU-16)
+
+Endpoints para el rol `OPERADOR`. Sin sesión responden `401` y con otro rol `403` (CA-07).
+
+| Método | Ruta | Respuesta |
+| --- | --- | --- |
+| `POST` | `/api/v1/payments` con `{"chargeId":1,"amount":10000,"idempotencyKey":"<uuid>"}` | `201` pago nuevo; `200` repetición con la misma clave (`replayed: true`); `400 SOLICITUD_INVALIDA` o `IMPORTE_INCORRECTO`; `404 COBRO_NO_ENCONTRADO`; `409 COBRO_YA_PAGADO`, `COBRO_NO_PAGABLE` o `IDEMPOTENCIA_CONFLICTO` |
+| `GET` | `/api/v1/payments/charge/{chargeId}` | Pago con importe, fecha, método y operador (CA-03); `404 PAGO_NO_ENCONTRADO` |
+
+Cómo funciona (`CashPaymentService`, todo en una transacción):
+
+1. Bloquea el cobro con `SELECT … FOR UPDATE`: un segundo pago del mismo cobro espera a que el primero termine.
+2. Si la clave de idempotencia ya existe, devuelve el pago original cuando los datos coinciden, o `409 IDEMPOTENCIA_CONFLICTO` cuando no (CA-02).
+3. **Patrón State** (`ChargeState`): `PENDIENTE` pasa a `PAGADO`; `PAGADO` responde `COBRO_YA_PAGADO` (CA-06); `VENCIDO` y `ANULADO` responden `COBRO_NO_PAGABLE`.
+4. El importe debe ser exactamente el valor del cobro (CA-05).
+5. Guarda el pago y deja el cobro `PAGADO` con `vigente_hasta` en las 06:00 del día siguiente: el pase del día operativo (CA-08, RN-03).
+
+Las restricciones `uq_pagos_cobro` y `uq_pagos_clave_idempotencia` de la base de datos respaldan las reglas. Las transacciones se manejan con el puerto `Transactions`, así la capa de aplicación no depende de Spring.
+
+Pruebas: `ChargeStateTest` y `CashPaymentServiceTest` (unitarias), y `PaymentApiTest` (integración con PostgreSQL real, incluidos seis pagos simultáneos).

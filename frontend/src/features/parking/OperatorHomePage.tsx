@@ -6,7 +6,7 @@ const OPERATOR_MODULES: ModuleCardProps[] = [
   { title: 'Cobro del día', description: 'Calcula el cobro de un ingreso y consulta el cobro de hoy.', to: ROUTES.charges },
   { title: 'Carril de entrada', description: 'Registra el ingreso de un vehículo por su placa.', story: 'HU-10' },
   { title: 'Carril de salida', description: 'Valida el cobro del día y abre o mantiene cerrada la barrera.', story: 'HU-16' },
-  { title: 'Caja', description: 'Registra el pago en efectivo del cobro de una placa.', story: 'HU-15' },
+  { title: 'Caja', description: 'Registra el pago en efectivo del cobro de una placa.', to: ROUTES.cashier },
 ]
 
 /** Panel base del rol operador. */
