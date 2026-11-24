@@ -23,11 +23,12 @@ class EntryApiDocsTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath(operation + ".summary").isNotEmpty())
                 .andExpect(jsonPath(operation + ".requestBody.required").value(true))
-                .andExpect(jsonPath(operation + ".responses['200'].content['application/json'].schema['$ref']")
+                .andExpect(jsonPath(operation + ".responses['201'].content['application/json'].schema['$ref']")
                         .value("#/components/schemas/EntryResponse"))
                 .andExpect(jsonPath(operation + ".responses['400']").exists())
                 .andExpect(jsonPath(operation + ".responses['401']").exists())
                 .andExpect(jsonPath(operation + ".responses['403'].content['application/json'].examples.ACCESS_DENIED")
-                        .exists());
+                        .exists())
+                .andExpect(jsonPath(operation + ".responses['409']").exists());
     }
 }

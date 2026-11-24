@@ -1,8 +1,8 @@
 package com.parkingspot.infrastructure;
 
 import com.parkingspot.infrastructure.adapter.out.persistence.AccountStore;
-import com.parkingspot.infrastructure.adapter.out.persistence.AccountStore.Role;
 import com.parkingspot.support.EntryIntegrationTest;
+import com.parkingspot.support.EntryTestData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,6 +14,7 @@ import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -35,38 +36,38 @@ class EntryReadingControllerTest {
     @Autowired JdbcClient jdbc;
 
     @BeforeEach
-    void createOperator() {
-        jdbc.sql("DELETE FROM usuarios").update();
-        accounts.create("operador1", "Operador de prueba", Role.OPERADOR, "clave-de-prueba");
+    void resetData() {
+        EntryTestData.reset(jdbc, accounts);
     }
 
     private ResultActions postAsOperator(String url, String body) throws Exception {
-        return mvc.perform(post(url).with(user("operador1").roles("OPERADOR")).with(csrf())
+        return mvc.perform(post(url).with(user(EntryTestData.OPERATOR).roles("OPERADOR")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
     @Test
-    void acceptsAutomaticReadingAboveThreshold() throws Exception {
+    void acceptedAutomaticReadingContinuesToEntry() throws Exception {
         postAsOperator(AUTOMATIC, """
                 {"plate":" abc123 ","confidence":0.93}""")
-                .andExpect(status().isOk())
-                .andExpect(content().json("""
-                        {"resultado":"ACEPTADA","motivo":null,"readText":" abc123 ","plate":"ABC123",
-                         "vehicleType":"CARRO","confidence":0.93,"source":"SIMULADOR","operador":"operador1"}""",
-                        JsonCompareMode.STRICT));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultado").value("AUTORIZADO"))
+                .andExpect(jsonPath("$.plate").value("ABC123"))
+                .andExpect(jsonPath("$.source").value("SIMULADOR"))
+                .andExpect(jsonPath("$.operador").value(EntryTestData.OPERATOR));
     }
 
     // CA-02: frontera del umbral 0.80 — igual se acepta, menor pide validación.
     @Test
     void thresholdBoundary() throws Exception {
         postAsOperator(AUTOMATIC, "{\"plate\":\"ABC123\",\"confidence\":0.80}")
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.resultado").value("ACEPTADA"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultado").value("AUTORIZADO"));
         postAsOperator(AUTOMATIC, "{\"plate\":\"ABC123\",\"confidence\":0.79}")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultado").value("REQUIERE_VALIDACION"))
                 .andExpect(jsonPath("$.motivo").value("CONFIANZA_BAJA"))
-                .andExpect(jsonPath("$.plate").value("ABC123"));
+                .andExpect(jsonPath("$.plate").value("ABC123"))
+                .andExpect(jsonPath("$.barreraAbierta").value(false));
     }
 
     // Formato inválido → REQUIERE_VALIDACION aunque la confianza sea alta.
@@ -75,9 +76,26 @@ class EntryReadingControllerTest {
         postAsOperator(AUTOMATIC, "{\"plate\":\"AB123\",\"confidence\":0.99}")
                 .andExpect(status().isOk())
                 .andExpect(content().json("""
-                        {"resultado":"REQUIERE_VALIDACION","motivo":"FORMATO_INVALIDO","readText":"AB123",
-                         "plate":null,"vehicleType":null,"confidence":0.99,"source":"SIMULADOR","operador":"operador1"}""",
+                        {"resultado":"REQUIERE_VALIDACION","motivo":"FORMATO_INVALIDO","barreraAbierta":false,
+                         "eventoId":null,"sedeId":null,"ocurridoEn":null,"readText":"AB123","plate":null,
+                         "vehicleType":null,"confidence":0.99,"source":"SIMULADOR","operador":"operador1"}""",
                         JsonCompareMode.STRICT));
+    }
+
+    // CA-04: sin la confirmación requerida no se registra la entrada (ni evento ni ocupación).
+    @Test
+    void noEntryIsRegisteredWithoutRequiredConfirmation() throws Exception {
+        postAsOperator(AUTOMATIC, "{\"plate\":\"ABC123\",\"confidence\":0.42}")
+                .andExpect(jsonPath("$.resultado").value("REQUIERE_VALIDACION"));
+        postAsOperator(AUTOMATIC, "{\"plate\":\"AB123\",\"confidence\":0.99}")
+                .andExpect(jsonPath("$.resultado").value("REQUIERE_VALIDACION"));
+
+        assertThat(EntryTestData.events(jdbc)).isZero();
+        assertThat(EntryTestData.occupied(jdbc, "CARRO")).isZero();
+
+        // Con la confirmación del operador, la entrada sí se registra.
+        postAsOperator(MANUAL, "{\"plate\":\"ABC123\"}").andExpect(status().isCreated());
+        assertThat(EntryTestData.events(jdbc)).isEqualTo(1);
     }
 
     @Test
@@ -91,11 +109,14 @@ class EntryReadingControllerTest {
     @Test
     void manualConfirmationIsMarkedManualWithOperator() throws Exception {
         postAsOperator(MANUAL, "{\"plate\":\" abc12d \"}")
-                .andExpect(status().isOk())
-                .andExpect(content().json("""
-                        {"resultado":"ACEPTADA","motivo":null,"readText":" abc12d ","plate":"ABC12D",
-                         "vehicleType":"MOTO","confidence":null,"source":"MANUAL","operador":"operador1"}""",
-                        JsonCompareMode.STRICT));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultado").value("AUTORIZADO"))
+                .andExpect(jsonPath("$.readText").value(" abc12d "))
+                .andExpect(jsonPath("$.plate").value("ABC12D"))
+                .andExpect(jsonPath("$.vehicleType").value("MOTO"))
+                .andExpect(jsonPath("$.confidence").isEmpty())
+                .andExpect(jsonPath("$.source").value("MANUAL"))
+                .andExpect(jsonPath("$.operador").value(EntryTestData.OPERATOR));
     }
 
     @Test
@@ -103,6 +124,7 @@ class EntryReadingControllerTest {
         postAsOperator(MANUAL, "{\"plate\":\"AB123\"}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_PLATE"));
+        assertThat(EntryTestData.events(jdbc)).isZero();
     }
 
     @Test
@@ -124,8 +146,9 @@ class EntryReadingControllerTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
-        mvc.perform(post(url).with(user("operador1").roles("OPERADOR"))
+        mvc.perform(post(url).with(user(EntryTestData.OPERATOR).roles("OPERADOR"))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
+        assertThat(EntryTestData.events(jdbc)).isZero();
     }
 }
