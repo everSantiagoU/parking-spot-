@@ -58,6 +58,7 @@ mvn -f backend/pom.xml test
 | `DB_PASSWORD` | *(vacío)* | Contraseña de la base de datos. No tiene valor por defecto. |
 | `FRONTEND_ORIGIN` | `http://localhost:5173` | Origen permitido por CORS. |
 | `TZ` | `America/Bogota` | Zona horaria usada por Hibernate. |
+| `PLATE_CONFIDENCE_THRESHOLD` | `0.80` | Umbral de confianza (0 a 1) de la HU-11. Una lectura automática con confianza menor requiere validación del operador. |
 
 La persistencia usa Spring Data JPA con el driver de PostgreSQL. `ddl-auto` está en `none`: el esquema lo crean las migraciones de Flyway.
 
@@ -82,6 +83,8 @@ Springdoc publica `/v3/api-docs` y Swagger UI en el mismo puerto. `springdoc.sho
 | `POST /api/v1/auth/logout` | Sesión válida y CSRF. Invalida la sesión y responde 204. |
 | `POST /api/v1/vehicles/classify` | Solo `OPERADOR`, con CSRF. |
 | `POST /api/v1/plate-readings/simulate` | Solo `OPERADOR`, con CSRF. |
+| `POST /api/v1/entries/automatic` | Solo `OPERADOR`, con CSRF. |
+| `POST /api/v1/entries/manual` | Solo `OPERADOR`, con CSRF. |
 | `/api/v1/admin/**` | Solo `ADMIN`. Las solicitudes que modifican estado requieren CSRF. |
 
 El inicio de sesión devuelve el mismo objeto que `/auth/me` y renueva el identificador de sesión. Spring mantiene la sesión en memoria con 30 minutos de inactividad y usa la cookie `JSESSIONID`, configurada con `HttpOnly` y `SameSite=Lax`. Para servir la API por HTTPS, activa `SESSION_COOKIE_SECURE=true`. En local, usa el mismo nombre de host para ambas aplicaciones (por ejemplo, `localhost` en ambas) y configura `FRONTEND_ORIGIN` con el origen exacto del frontend. CORS permite credenciales desde ese origen. El cliente incluye la cookie y solicita un token CSRF antes de cada operación de escritura, incluidas login y logout. Envía el token con el nombre de cabecera devuelto por el servidor (`X-CSRF-TOKEN`).
@@ -137,3 +140,12 @@ Respuesta HTTP 200: `{"plate":"ABC12D","vehicleType":"MOTO","confidence":0.93,"s
 | 403 | `ACCESS_DENIED` | La sesión no tiene el rol `OPERADOR` o falta el token CSRF. |
 
 Los errores 400 usan el formato `{"code":"...","message":"..."}`. El lector es un puerto de salida (`domain/port/out/PlateReaderPort`) implementado por `SimulatedPlateReader` en `infrastructure/adapter/out/plate`. Para usar otro lector basta con cambiar el bean `plateReader` en `PlateReaderConfig`, sin modificar el dominio ni la aplicación. No se persisten datos.
+
+## Validar la confianza y lectura manual (HU-11)
+
+Ambas rutas son solo para `OPERADOR`, con sesión y token CSRF. La sede y el usuario salen del operador autenticado (`usuarios.sede_id`), nunca del cuerpo.
+
+- `POST /api/v1/entries/automatic` recibe la lectura del lector, `{"plate":"ABC123","confidence":0.93}`. Si el formato es inválido (`motivo` `FORMATO_INVALIDO`, aunque la confianza sea alta) o la confianza es menor que `PLATE_CONFIDENCE_THRESHOLD` (`motivo` `CONFIANZA_BAJA`), responde `resultado` `REQUIERE_VALIDACION` y no registra la entrada. Una confianza igual o mayor al umbral responde `ACEPTADA`.
+- `POST /api/v1/entries/manual` recibe la placa que el operador digita o confirma, `{"plate":"ABC123"}`. La lectura queda con `source` `MANUAL`, sin confianza y con el usuario del operador (`operador`).
+
+En el dominio, solo una `AcceptedReading` puede continuar al ingreso, y únicamente se crea con una lectura automática que alcanza el umbral o con una confirmación manual. Si el operador está inactivo o no tiene sede, la API responde 403 con `code` `OPERATOR_NOT_AVAILABLE`.
