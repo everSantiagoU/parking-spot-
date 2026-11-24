@@ -9,6 +9,7 @@ export const ROUTES = {
   classifyVehicle: '/vehicles/classify',
   charges: '/operator/charges',
   cashier: '/operator/cashier',
+  parkingConfiguration: '/admin/configuration',
 } as const
 
 export function panelForRole(role: Role) {
