@@ -1,3 +1,5 @@
+import { HistoryPage } from '../../features/administration/HistoryPage'
+import { ParkingConfigurationPage } from '../../features/tariffs/ParkingConfigurationPage'
 import { Link, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '../../components/layout/AppLayout'
 import { AdminHomePage } from '../../features/administration/AdminHomePage'
@@ -47,6 +49,8 @@ export function AppRouter() {
         </Route>
         <Route element={<RequireRole role="ADMIN" />}>
           <Route element={<AppLayout />}>
+            <Route path={ROUTES.history} element={<HistoryPage />} />
+            <Route path={ROUTES.parkingConfiguration} element={<ParkingConfigurationPage />} />
             <Route path={ROUTES.admin} element={<AdminHomePage />} />
           </Route>
         </Route>
