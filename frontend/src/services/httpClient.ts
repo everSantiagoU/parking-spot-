@@ -1,6 +1,6 @@
 import { apiBaseUrl } from '../app/config/env'
 
-/** Error devuelto por el backend con el formato { code, message }. */
+/** Error HTTP con el código o motivo que devuelve el backend. */
 export class ApiError extends Error {
   readonly status: number
   readonly code?: string
@@ -13,7 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-type ErrorBody = { code?: string; message?: string }
+type ErrorBody = { code?: string; message?: string; motivo?: string }
 
 export type RequestOptions = Omit<RequestInit, 'headers'> & { headers?: Record<string, string> }
 
@@ -57,7 +57,7 @@ export async function request<T>(path: string, init: RequestOptions = {}): Promi
       throw new ApiError(403, 'Acceso denegado.', 'ACCESS_DENIED')
     }
     const body = (await response.json().catch(() => ({}))) as ErrorBody
-    throw new ApiError(response.status, body.message ?? DEFAULT_ERROR_MESSAGE, body.code)
+    throw new ApiError(response.status, body?.message ?? DEFAULT_ERROR_MESSAGE, body?.code ?? body?.motivo)
   }
 
   return response.status === 204 ? undefined as T : (await response.json()) as T

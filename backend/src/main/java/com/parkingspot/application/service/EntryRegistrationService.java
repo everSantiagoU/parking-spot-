@@ -23,14 +23,17 @@ public class EntryRegistrationService implements RegisterEntryUseCase {
     private final OccupancyRepository occupancy;
     private final Transactions transactions;
     private final Clock clock;
+    private final ChargeService charges;
 
     public EntryRegistrationService(ValidateEntryReadingUseCase validation, EntryEventRepository events,
-                                    OccupancyRepository occupancy, Transactions transactions, Clock clock) {
+                                    OccupancyRepository occupancy, Transactions transactions, Clock clock,
+                                    ChargeService charges) {
         this.validation = validation;
         this.events = events;
         this.occupancy = occupancy;
         this.transactions = transactions;
         this.clock = clock;
+        this.charges = charges;
     }
 
     @Override
@@ -56,12 +59,13 @@ public class EntryRegistrationService implements RegisterEntryUseCase {
             // operación atómica, así que ingresos simultáneos no superan la capacidad.
             if (occupancy.occupySpotIfAvailable(operator.siteId(), accepted.type())) {
                 var authorized = EntryEvent.authorized(accepted, now);
+                var exemption = charges.exemptionAtEntry(operator.siteId(), accepted.type(), now);
                 return EntryAttempt.registered(EntryOutcome.AUTORIZADO, readText, authorized,
-                        events.save(authorized), operator.username());
+                        events.save(authorized, exemption.orElse(null)), operator.username());
             }
             // HU-13 CA-02 y CA-03: sin cupo → LLENO, la barrera sigue cerrada y el intento queda RECHAZADO.
             var rejected = EntryEvent.rejectedFull(accepted, now);
-            return EntryAttempt.registered(EntryOutcome.LLENO, readText, rejected, events.save(rejected),
+            return EntryAttempt.registered(EntryOutcome.LLENO, readText, rejected, events.save(rejected, null),
                     operator.username());
         });
     }

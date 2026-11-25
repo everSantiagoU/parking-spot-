@@ -9,6 +9,7 @@ import com.parkingspot.domain.model.Charge;
 import com.parkingspot.domain.model.Tariff;
 import com.parkingspot.domain.model.TimeSlot;
 import com.parkingspot.domain.model.VehicleClassification;
+import com.parkingspot.domain.model.VehicleType;
 import com.parkingspot.domain.port.out.ChargeRepository;
 import com.parkingspot.domain.port.out.ChargeRepository.SavedCharge;
 import com.parkingspot.domain.port.out.TariffRepository;
@@ -63,14 +64,11 @@ public class ChargeService implements GenerateChargeUseCase, FindTodayChargeUseC
             return ChargeResult.existing(existing.get());
         }
 
-        TimeSlot timeSlot = timeSlotResolver.resolve(timeSlots.findBySite(siteId), operatingDays.localTimeOf(now));
-        Tariff tariff = tariffs.findFor(siteId, vehicle.type(), timeSlot)
-                .orElseThrow(() -> new TariffNotConfiguredException(
-                        "No hay tarifa " + timeSlot + " configurada para " + vehicle.type() + "."));
+        Tariff tariff = applicableTariff(siteId, vehicle.type(), now);
 
         Optional<BigDecimal> amount = strategies.strategyFor(vehicle.type()).amountToCharge(tariff);
         if (amount.isEmpty()) {
-            return ChargeResult.exempt(vehicle, operatingDay, timeSlot);
+            return ChargeResult.exempt(vehicle, operatingDay, tariff.timeSlot());
         }
 
         Charge pending = Charge.pending(siteId, vehicle, operatingDay, tariff, amount.get(),
@@ -78,6 +76,29 @@ public class ChargeService implements GenerateChargeUseCase, FindTodayChargeUseC
         // HU-15 CA-06: si otra solicitud lo creó al mismo tiempo, se devuelve ese cobro.
         SavedCharge saved = charges.saveIfAbsent(pending);
         return saved.created() ? ChargeResult.created(saved.charge()) : ChargeResult.existing(saved.charge());
+    }
+
+    /** Evidencia que se captura al autorizar el ingreso, dentro de su transacción. */
+    public Optional<LocalDate> exemptionAtEntry(long siteId, VehicleType type, Instant occurredAt) {
+        if (type != VehicleType.MOTO) {
+            return Optional.empty();
+        }
+        try {
+            Tariff tariff = applicableTariff(siteId, type, occurredAt);
+            if (strategies.strategyFor(type).amountToCharge(tariff).isEmpty()) {
+                return Optional.of(operatingDays.operatingDayOf(occurredAt));
+            }
+        } catch (TariffNotConfiguredException exception) {
+            // Sin configuración aplicable, el ingreso queda sin evidencia de exención.
+        }
+        return Optional.empty();
+    }
+
+    private Tariff applicableTariff(long siteId, VehicleType type, Instant now) {
+        TimeSlot timeSlot = timeSlotResolver.resolve(timeSlots.findBySite(siteId), operatingDays.localTimeOf(now));
+        return tariffs.findFor(siteId, type, timeSlot)
+                .orElseThrow(() -> new TariffNotConfiguredException(
+                        "No hay tarifa " + timeSlot + " configurada para " + type + "."));
     }
 
     @Override

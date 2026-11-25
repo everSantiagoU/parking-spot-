@@ -1,6 +1,7 @@
 package com.parkingspot.application;
 
 import com.parkingspot.application.port.Transactions;
+import com.parkingspot.application.service.ChargeService;
 import com.parkingspot.application.service.EntryReadingValidationService;
 import com.parkingspot.application.service.EntryRegistrationService;
 import com.parkingspot.domain.exception.OccupancyNotConfiguredException;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static org.mockito.Mockito.mock;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -38,7 +40,7 @@ class EntryRegistrationServiceTest {
 
     private final List<EntryEvent> savedEvents = new ArrayList<>();
     private final List<String> occupiedSpots = new ArrayList<>();
-    private final EntryEventRepository events = event -> {
+    private final EntryEventRepository events = (event, exemption) -> {
         savedEvents.add(event);
         return savedEvents.size();
     };
@@ -49,7 +51,7 @@ class EntryRegistrationServiceTest {
                 new ConfidenceThreshold(0.80), username -> Optional.of(OPERATOR));
         // Clock fijo: la prueba controla "la hora del servidor".
         return new EntryRegistrationService(validation, events, occupancyRepository, new DirectTransactions(),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC), mock(ChargeService.class));
     }
 
     /** Sin base de datos: ejecuta el bloque directamente. */

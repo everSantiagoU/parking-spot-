@@ -10,6 +10,8 @@ export const ROUTES = {
   charges: '/operator/charges',
   cashier: '/operator/cashier',
   pass: '/operator/pass',
+  entry: '/operator/entry',
+  exit: '/operator/exit',
   parkingConfiguration: '/admin/configuration',
 } as const
 

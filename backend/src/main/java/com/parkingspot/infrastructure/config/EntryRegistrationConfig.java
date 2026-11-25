@@ -1,6 +1,7 @@
 package com.parkingspot.infrastructure.config;
 
 import com.parkingspot.application.port.Transactions;
+import com.parkingspot.application.service.ChargeService;
 import com.parkingspot.application.service.EntryRegistrationService;
 import com.parkingspot.application.usecase.RegisterEntryUseCase;
 import com.parkingspot.application.usecase.ValidateEntryReadingUseCase;
@@ -26,7 +27,8 @@ public class EntryRegistrationConfig {
     @Bean
     RegisterEntryUseCase registerEntryUseCase(ValidateEntryReadingUseCase validateEntryReadingUseCase,
                                               EntryEventRepository events, OccupancyRepository occupancy,
-                                              Transactions transactions, Clock entryClock) {
-        return new EntryRegistrationService(validateEntryReadingUseCase, events, occupancy, transactions, entryClock);
+                                              Transactions transactions, Clock entryClock, ChargeService charges) {
+        return new EntryRegistrationService(validateEntryReadingUseCase, events, occupancy, transactions, entryClock,
+                charges);
     }
 }

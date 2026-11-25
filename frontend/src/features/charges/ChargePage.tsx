@@ -43,7 +43,8 @@ export function ChargePage() {
         <Link to={ROUTES.operator} className="text-sm font-medium text-teal-300 hover:text-teal-200">← Operador</Link>
         <h1 className="mt-6 text-3xl font-bold tracking-tight sm:text-4xl">Cobro del día</h1>
         <p className="mt-3 text-slate-300">
-          Calcula el cobro de un ingreso según el tipo de vehículo y la franja, o consulta el cobro de hoy.
+          Para un vehículo que está entrando, registra primero su ingreso en el{' '}
+          <Link to={ROUTES.entry} className="text-teal-300 underline">Carril de entrada</Link>.
         </p>
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <div>
@@ -64,7 +65,7 @@ export function ChargePage() {
               disabled={loading !== null}
               className="flex-1 rounded-lg bg-teal-300 px-5 py-3 font-semibold text-slate-950 hover:bg-teal-200 disabled:cursor-wait disabled:opacity-60"
             >
-              {loading === 'generate' ? 'Calculando…' : 'Registrar cobro de ingreso'}
+              {loading === 'generate' ? 'Calculando…' : 'Generar cobro'}
             </button>
             <button
               type="button"

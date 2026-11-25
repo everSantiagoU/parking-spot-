@@ -5,6 +5,8 @@ import { CashierPage } from '../../features/cashier/CashierPage'
 import { ChargePage } from '../../features/charges/ChargePage'
 import { AuthProvider, useAuth, type Role } from '../../features/auth/AuthProvider'
 import { LoginPage } from '../../features/auth/LoginPage'
+import { EntryLanePage } from '../../features/entries/EntryLanePage'
+import { ExitLanePage } from '../../features/exits/ExitLanePage'
 import { HomePage } from '../../features/home/HomePage'
 import { OperatorHomePage } from '../../features/parking/OperatorHomePage'
 import { PassPage } from '../../features/passes/PassPage'
@@ -38,6 +40,8 @@ export function AppRouter() {
             <Route path={ROUTES.classifyVehicle} element={<ClassifyVehiclePage />} />
             <Route path={ROUTES.charges} element={<ChargePage />} />
             <Route path={ROUTES.cashier} element={<CashierPage />} />
+            <Route path={ROUTES.entry} element={<EntryLanePage />} />
+            <Route path={ROUTES.exit} element={<ExitLanePage />} />
             <Route path={ROUTES.pass} element={<PassPage />} />
           </Route>
         </Route>

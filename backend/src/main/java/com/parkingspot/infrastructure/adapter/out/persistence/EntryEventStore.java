@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
@@ -28,12 +29,12 @@ public class EntryEventStore implements EntryEventRepository {
     }
 
     @Override
-    public long save(EntryEvent event) {
+    public long save(EntryEvent event, LocalDate exemptOperatingDay) {
         var keys = new GeneratedKeyHolder();
         jdbc.sql("""
                 INSERT INTO eventos (sede_id, placa, tipo_vehiculo, tipo_evento, origen_lectura, confianza,
-                                     resultado, motivo, usuario_id, ocurrido_en)
-                VALUES (:sede, :placa, :tipo, 'INGRESO', :origen, :confianza, :resultado, :motivo, :usuario, :ocurrido)
+                                     resultado, motivo, usuario_id, ocurrido_en, dia_operativo_exento)
+                VALUES (:sede, :placa, :tipo, 'INGRESO', :origen, :confianza, :resultado, :motivo, :usuario, :ocurrido, :diaExento)
                 """)
                 .param("sede", event.siteId())
                 .param("placa", event.plate())
@@ -45,6 +46,7 @@ public class EntryEventStore implements EntryEventRepository {
                 .param("usuario", event.userId())
                 .param("ocurrido", OffsetDateTime.ofInstant(event.occurredAt(), ZoneOffset.UTC),
                         Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("diaExento", exemptOperatingDay, Types.DATE)
                 .update(keys);
         return generatedId(keys);
     }
