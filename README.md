@@ -119,6 +119,26 @@ mvn -f backend/pom.xml spring-boot:run      # Exportar antes DB_PASSWORD (ver ba
 cd frontend && npm install && npm run dev
 ```
 
+### Integración continua (GitHub Actions)
+
+El workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) se ejecuta en cada Pull Request hacia `develop` o `main`, en cada push a esas ramas y de forma manual desde la pestaña **Actions**. Tiene dos jobs que corren en paralelo:
+
+| Job | Qué hace |
+| --- | --- |
+| **Backend (Java 21 + Maven)** | Configura Temurin 21 con caché de Maven y ejecuta `mvn -B verify` (compilación y todas las pruebas). Las pruebas de integración usan Testcontainers con el Docker del runner, por eso no se configura una base de datos aparte. Los reportes de Surefire quedan como artefacto `backend-test-reports`. |
+| **Frontend (Node + Vite)** | Configura Node 22 con caché de npm, instala con `npm ci` (respeta `package-lock.json`), ejecuta `npm test` (Vitest) y genera el build con `npm run build`. |
+
+Si una compilación o una prueba falla, el check aparece en rojo en el Pull Request. El workflow solo tiene permiso de lectura (`contents: read`) y no usa secretos.
+
+Para que un check fallido impida el merge, un administrador del repositorio debe activar la protección de `develop` en **Settings → Branches → Add branch protection rule** (o **Rules → Rulesets**): marcar **Require status checks to pass before merging** y elegir los checks `Backend (Java 21 + Maven)` y `Frontend (Node + Vite)`. Los checks aparecen en la lista después de que el workflow se ha ejecutado al menos una vez.
+
+Para reproducir el pipeline en local:
+
+```sh
+mvn -B -f backend/pom.xml verify          # Requiere Docker encendido para Testcontainers
+cd frontend && npm ci && npm test && npm run build
+```
+
 ### Problemas comunes
 
 - **`port is already allocated`**: otro programa usa el puerto. Cambie `DB_PORT`, `SERVER_PORT` o `FRONTEND_PORT` en `.env`. Si cambia `SERVER_PORT`, actualice también `VITE_API_BASE_URL`; si cambia `FRONTEND_PORT`, actualice `FRONTEND_ORIGIN`.
