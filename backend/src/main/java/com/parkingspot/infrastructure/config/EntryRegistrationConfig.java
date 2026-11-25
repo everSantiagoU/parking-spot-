@@ -3,11 +3,15 @@ package com.parkingspot.infrastructure.config;
 import com.parkingspot.application.port.Transactions;
 import com.parkingspot.application.service.ChargeService;
 import com.parkingspot.application.service.EntryRegistrationService;
+import com.parkingspot.application.service.LatestEntryService;
+import com.parkingspot.application.usecase.FindLatestEntryUseCase;
 import com.parkingspot.application.usecase.RegisterEntryUseCase;
 import com.parkingspot.application.usecase.ValidateEntryReadingUseCase;
 import com.parkingspot.domain.port.out.EntryEventRepository;
 import com.parkingspot.domain.port.out.ExitEventRepository;
+import com.parkingspot.domain.port.out.LatestEntryRepository;
 import com.parkingspot.domain.port.out.OccupancyRepository;
+import com.parkingspot.domain.port.out.OperatorRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -32,5 +36,10 @@ public class EntryRegistrationConfig {
                                               ExitEventRepository exits) {
         return new EntryRegistrationService(validateEntryReadingUseCase, events, occupancy, transactions, entryClock,
                 charges, exits);
+    }
+
+    @Bean
+    FindLatestEntryUseCase findLatestEntryUseCase(OperatorRepository operators, LatestEntryRepository entries) {
+        return new LatestEntryService(operators, entries);
     }
 }

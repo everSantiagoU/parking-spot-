@@ -2,7 +2,7 @@ package com.parkingspot.infrastructure.adapter.in.rest;
 
 import com.parkingspot.domain.exception.OperatorNotAvailableException;
 import com.parkingspot.domain.model.Occupancy;
-import com.parkingspot.domain.port.out.OccupancyRepository;
+import com.parkingspot.domain.port.out.OccupancyQuery;
 import com.parkingspot.domain.port.out.OperatorRepository;
 import com.parkingspot.infrastructure.adapter.in.rest.ClassificationErrorHandler.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,10 +27,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class OccupancyController {
     private static final Logger log = LoggerFactory.getLogger(OccupancyController.class);
 
-    private final OccupancyRepository occupancy;
+    private final OccupancyQuery occupancy;
     private final OperatorRepository operators;
 
-    public OccupancyController(OccupancyRepository occupancy, OperatorRepository operators) {
+    public OccupancyController(OccupancyQuery occupancy, OperatorRepository operators) {
         this.occupancy = occupancy;
         this.operators = operators;
     }

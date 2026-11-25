@@ -10,7 +10,7 @@ import com.parkingspot.domain.port.out.ChargeRepository;
 import com.parkingspot.domain.port.out.ExitBarrier;
 import com.parkingspot.domain.port.out.ExitEventRepository;
 import com.parkingspot.domain.port.out.ExitEventRepository.ActiveEntry;
-import com.parkingspot.domain.port.out.OccupancyRepository;
+import com.parkingspot.domain.port.out.SpotRelease;
 import com.parkingspot.domain.port.out.OperatorRepository;
 import com.parkingspot.domain.service.OperatingDayCalculator;
 import com.parkingspot.domain.service.PlateClassifier;
@@ -29,12 +29,12 @@ public class ExitValidationService implements ValidateExitUseCase {
     private final OperatingDayCalculator operatingDays;
     private final ExitBarrier barrier;
     private final Clock clock;
-    private final OccupancyRepository occupancy;
+    private final SpotRelease occupancy;
     private final Transactions transactions;
 
     public ExitValidationService(PlateClassifier plates, OperatorRepository operators, ExitEventRepository events,
                                  ChargeRepository charges, OperatingDayCalculator operatingDays, ExitBarrier barrier,
-                                 Clock clock, OccupancyRepository occupancy, Transactions transactions) {
+                                 Clock clock, SpotRelease occupancy, Transactions transactions) {
         this.plates = plates;
         this.operators = operators;
         this.events = events;

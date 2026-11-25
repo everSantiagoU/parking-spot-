@@ -1,14 +1,14 @@
 package com.parkingspot.infrastructure.adapter.out.persistence;
 
+import com.parkingspot.domain.exception.InvalidParkingConfigurationException;
+import com.parkingspot.domain.exception.SiteNotAvailableException;
 import com.parkingspot.domain.model.VehicleType;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.List;
-import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Adaptador de persistencia de la configuración del parqueadero (HU-12): lee y guarda tarifas,
@@ -35,7 +35,7 @@ public class ParkingConfigurationStore {
     private void requireSite(long site) {
         if (!jdbc.sql("SELECT EXISTS(SELECT 1 FROM sedes WHERE id = :site AND activa)")
                 .param("site", site).query(Boolean.class).single()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sede no disponible.");
+            throw new SiteNotAvailableException();
         }
     }
 
@@ -116,7 +116,7 @@ public class ParkingConfigurationStore {
                 """).param("site", site).param("slot", slot).param("start", start).param("end", end).update();
     }
 
-    private ResponseStatusException invalid(String message) {
-        return new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, message);
+    private InvalidParkingConfigurationException invalid(String message) {
+        return new InvalidParkingConfigurationException(message);
     }
 }

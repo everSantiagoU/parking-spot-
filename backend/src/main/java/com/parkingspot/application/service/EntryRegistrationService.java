@@ -10,7 +10,7 @@ import com.parkingspot.domain.model.EntryOutcome;
 import com.parkingspot.domain.model.PlateCapture;
 import com.parkingspot.domain.port.out.EntryEventRepository;
 import com.parkingspot.domain.port.out.ExitEventRepository;
-import com.parkingspot.domain.port.out.OccupancyRepository;
+import com.parkingspot.domain.port.out.SpotReservation;
 
 import com.parkingspot.domain.model.VehicleClassification;
 import java.time.Clock;
@@ -22,14 +22,14 @@ import java.time.Clock;
 public class EntryRegistrationService implements RegisterEntryUseCase {
     private final ValidateEntryReadingUseCase validation;
     private final EntryEventRepository events;
-    private final OccupancyRepository occupancy;
+    private final SpotReservation occupancy;
     private final Transactions transactions;
     private final Clock clock;
     private final ChargeService charges;
     private final ExitEventRepository exits;
 
     public EntryRegistrationService(ValidateEntryReadingUseCase validation, EntryEventRepository events,
-                                    OccupancyRepository occupancy, Transactions transactions, Clock clock,
+                                    SpotReservation occupancy, Transactions transactions, Clock clock,
                                     ChargeService charges, ExitEventRepository exits) {
         this.exits = exits;
         this.validation = validation;
