@@ -41,6 +41,8 @@ management:
 springdoc:
   show-actuator: true
 parking:
+  # Zona horaria del día operativo (HU-15).
+  time-zone: ${TZ:America/Bogota}
   entry:
     # HU-11: una lectura automática con confianza menor que este umbral (0 a 1)
     # requiere que el operador digite o confirme la placa.

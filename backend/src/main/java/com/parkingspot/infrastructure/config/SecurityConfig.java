@@ -47,3 +47,52 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/plate-readings/simulate").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/entries/automatic").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/entries/manual").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/charges").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/charges/today").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payments/charge/*").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/passes").hasRole("OPERADOR")
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .anyRequest().denyAll())
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, exception) -> {
+                            // CSRF se comprueba antes de que Spring instale la autenticación anónima.
+                            var current = SecurityContextHolder.getContext().getAuthentication();
+                            if ((current == null || current instanceof AnonymousAuthenticationToken)
+                                    && !(request.getContextPath() + LOGIN).equals(request.getRequestURI())) {
+                                response.setStatus(401);
+                            } else {
+                                writeError(response, json, 403, "ACCESS_DENIED", "Acceso denegado.");
+                            }
+                        }))
+                .formLogin(form -> form.loginPage(LOGIN).loginProcessingUrl(LOGIN)
+                        .successHandler((request, response, authentication) ->
+                                SessionUser.from(authentication).writeTo(response, json))
+                        .failureHandler((request, response, exception) ->
+                                writeError(response, json, 401, "INVALID_CREDENTIALS", "Credenciales inválidas.")))
+                .logout(logout -> logout.logoutUrl(LOGOUT).deleteCookies("JSESSIONID")
+                        .logoutSuccessHandler((request, response, authentication) ->
+                                response.setStatus(authentication == null ? 401 : 204)))
+                .build();
+    }
+
+    @Bean
+    CorsConfigurationSource cors(@Value("${FRONTEND_ORIGIN:http://localhost:5173}") String origin) {
+        var cors = new CorsConfiguration();
+        cors.setAllowedOrigins(List.of(origin));
+        cors.setAllowCredentials(true);
+        cors.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cors.setAllowedHeaders(List.of("Content-Type", "X-CSRF-TOKEN"));
+        var source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", cors);
+        return source;
+    }
+
+    private static void writeError(HttpServletResponse response, ObjectMapper json, int status, String code,
+                                   String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        json.writeValue(response.getOutputStream(), Map.of("code", code, "message", message));
+    }
+}
