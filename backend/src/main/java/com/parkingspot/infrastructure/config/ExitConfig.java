@@ -10,12 +10,22 @@ import com.parkingspot.domain.port.out.OccupancyRepository;
 import com.parkingspot.domain.port.out.OperatorRepository;
 import com.parkingspot.domain.service.OperatingDayCalculator;
 import com.parkingspot.domain.service.PlateClassifier;
+import com.parkingspot.infrastructure.adapter.out.barrier.SimulatedExitBarrier;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Conecta la validación de salida. Para usar otra barrera (por ejemplo, una física),
+ * basta con cambiar el bean exitBarrier: el dominio y la aplicación no cambian.
+ */
 @Configuration
 public class ExitConfig {
+    @Bean
+    ExitBarrier exitBarrier() {
+        return new SimulatedExitBarrier();
+    }
+
     @Bean
     ValidateExitUseCase validateExitUseCase(OperatorRepository operators, ExitEventRepository events,
                                            ChargeRepository charges, OperatingDayCalculator operatingDays,
