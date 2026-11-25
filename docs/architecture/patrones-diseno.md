@@ -172,6 +172,7 @@ Barrera de salida:
 | `OccupancyRepository` | `OccupancyStore` |
 | `EntryEventRepository` | `EntryEventStore` |
 | `ExitEventRepository` | `ExitEventStore` |
+| — (configuración HU-12, acceso directo) | `ParkingConfigurationStore` |
 
 **Fragmentos reales.**
 
@@ -235,7 +236,9 @@ private static class InMemoryCharges implements ChargeRepository { ... }
 - `domain` importa `org.springframework`, `jakarta.persistence`, `org.slf4j`, `application` o `infrastructure`.
 - `application` importa Spring, JPA o `infrastructure`.
 
-Para comprobar que la prueba funciona, se agregó a propósito `import org.springframework.stereotype.Component;` en `domain/model/Pass.java`. La prueba falló con `domain/model/Pass.java: import org.springframework.stereotype.Component;` y, después de quitar el import, volvió a pasar.
+**Dependencia real detectada y corregida (CP-HU-21-X01).** Al integrar `develop` con esta historia, `ArchitectureTest` encontró que `application/service/ParkingConfigurationService.java` (configuración de la HU-12) importaba `org.springframework.*` y usaba `JdbcClient`. Es decir, la capa de aplicación dependía de Spring y de PostgreSQL. Se corrigió moviendo la clase a `infrastructure/adapter/out/persistence/ParkingConfigurationStore.java`, que es la capa que le corresponde porque es un adaptador de persistencia, y actualizando `ParkingConfigurationController`. El comportamiento y las URL no cambiaron.
+
+Además, para comprobar que la prueba funciona, se agregó a propósito `import org.springframework.stereotype.Component;` en `domain/model/Pass.java`. La prueba falló con `domain/model/Pass.java: import org.springframework.stereotype.Component;` y, después de quitar el import, volvió a pasar.
 
 La regresión completa se ejecuta con `mvn -B -f backend/pom.xml verify` y también en el CI de GitHub Actions (HU-24).
 

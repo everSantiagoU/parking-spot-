@@ -2,10 +2,12 @@ package com.parkingspot.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.parkingspot.application.port.Transactions;
 import com.parkingspot.application.service.ExitValidationService;
 import com.parkingspot.domain.model.Charge;
 import com.parkingspot.domain.model.ChargeStatus;
 import com.parkingspot.domain.model.ExitDecision;
+import com.parkingspot.domain.model.Occupancy;
 import com.parkingspot.domain.model.Operator;
 import com.parkingspot.domain.model.TimeSlot;
 import com.parkingspot.domain.model.VehicleClassification;
@@ -13,6 +15,7 @@ import com.parkingspot.domain.model.VehicleType;
 import com.parkingspot.domain.port.out.ChargeRepository;
 import com.parkingspot.domain.port.out.ExitBarrier;
 import com.parkingspot.domain.port.out.ExitEventRepository;
+import com.parkingspot.domain.port.out.OccupancyRepository;
 import com.parkingspot.domain.service.OperatingDayCalculator;
 import com.parkingspot.domain.service.PlateClassifier;
 import java.math.BigDecimal;
@@ -23,6 +26,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -67,7 +71,9 @@ class ExitBarrierAdapterTest {
                 new InMemoryCharges(charge),
                 new OperatingDayCalculator(ZONE),
                 barrier,
-                Clock.fixed(NOW, ZONE));
+                Clock.fixed(NOW, ZONE),
+                new FreeOccupancy(),
+                new NoTransactions());
     }
 
     /** Adaptador de prueba: en lugar de mover una barrera, guarda a quién le abrió. */
@@ -94,11 +100,47 @@ class ExitBarrierAdapterTest {
         }
     }
 
+    /** Ocupación en memoria: siempre hay un cupo ocupado que se puede liberar. */
+    private static class FreeOccupancy implements OccupancyRepository {
+        @Override
+        public void lockForEntry(long siteId, VehicleType type) {
+        }
+
+        @Override
+        public boolean occupySpotIfAvailable(long siteId, VehicleType type) {
+            return true;
+        }
+
+        @Override
+        public boolean releaseOccupiedSpot(long siteId, VehicleType type) {
+            return true;
+        }
+
+        @Override
+        public List<Occupancy> findBySite(long siteId) {
+            return List.of();
+        }
+    }
+
+    /** Sin base de datos: ejecuta el bloque directamente. */
+    private static class NoTransactions implements Transactions {
+        @Override
+        public <T> T inTransaction(Supplier<T> work) {
+            return work.get();
+        }
+    }
+
     /** Eventos en memoria: el vehículo tiene un ingreso activo y no audita nada. */
     private static class OneActiveEntry implements ExitEventRepository {
         @Override
         public Optional<ActiveEntry> findActiveEntry(long siteId, String plate) {
-            return Optional.of(new ActiveEntry(1L, null));
+            return Optional.of(new ActiveEntry(1L, VehicleType.CARRO, null));
+        }
+
+        @Override
+        public boolean recordEffectiveExit(Operator operator, ActiveEntry entry, Instant now,
+                                           ExitDecision decision, Long chargeId) {
+            return true;
         }
 
         @Override

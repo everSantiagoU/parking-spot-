@@ -1,8 +1,8 @@
 package com.parkingspot.infrastructure.adapter.in.rest;
 
-import com.parkingspot.application.service.ParkingConfigurationService;
-import com.parkingspot.application.service.ParkingConfigurationService.Configuration;
-import com.parkingspot.application.service.ParkingConfigurationService.Site;
+import com.parkingspot.infrastructure.adapter.out.persistence.ParkingConfigurationStore;
+import com.parkingspot.infrastructure.adapter.out.persistence.ParkingConfigurationStore.Configuration;
+import com.parkingspot.infrastructure.adapter.out.persistence.ParkingConfigurationStore.Site;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,7 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/admin/sites")
-public record ParkingConfigurationController(ParkingConfigurationService configuration) {
+public record ParkingConfigurationController(ParkingConfigurationStore configuration) {
     @GetMapping
     public List<Site> sites() { return configuration.sites(); }
 
