@@ -24,20 +24,26 @@ public class ExitController {
     }
 
     @PostMapping("/api/v1/exits/validate")
-    @Operation(summary = "Valida el ingreso y el cobro del día para autorizar la barrera simulada",
-            description = "Requiere sesión de OPERADOR y token CSRF. Registra el intento sin cerrar el ingreso.",
+    @Operation(summary = "Registra una salida autorizada y libera el cupo del ingreso",
+            description = "Requiere sesión de OPERADOR y token CSRF. La apertura confirma la salida efectiva y la liberación del cupo.",
             responses = {
-                    @ApiResponse(responseCode = "200", description = "Decisión de apertura o rechazo auditada"),
+                    @ApiResponse(responseCode = "200", description = "Salida confirmada o intento de salida rechazado"),
                     @ApiResponse(responseCode = "400", description = "Placa ausente o inválida", content = @Content),
                     @ApiResponse(responseCode = "401", description = "Sesión requerida", content = @Content),
                     @ApiResponse(responseCode = "403", description = "Rol, sede o token CSRF inválido", content = @Content),
-                    @ApiResponse(responseCode = "503", description = "Falló la consulta o la auditoría. Barrera cerrada.",
+                    @ApiResponse(responseCode = "409", description = "Ocupación inconsistente. Salida revertida.",
+                            content = @Content(schema = @Schema(implementation = ExitResponse.class))),
+                    @ApiResponse(responseCode = "503", description = "Falló la consulta, el registro o la auditoría.",
                             content = @Content(schema = @Schema(implementation = ExitResponse.class)))
             })
     public ResponseEntity<ExitResponse> validate(@RequestBody ExitRequest request, Authentication operator) {
         var decision = exits.validate(request.plate(), operator.getName());
-        return ResponseEntity.status(decision.isSystemError() ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.OK)
-                .body(new ExitResponse(decision.authorizesOpening(), decision));
+        var status = switch (decision) {
+            case OCUPACION_INCONSISTENTE -> HttpStatus.CONFLICT;
+            case ERROR_CONSULTA, ERROR_REGISTRO_SALIDA, ERROR_AUDITORIA -> HttpStatus.SERVICE_UNAVAILABLE;
+            default -> HttpStatus.OK;
+        };
+        return ResponseEntity.status(status).body(new ExitResponse(decision.authorizesOpening(), decision));
     }
 
     public record ExitRequest(@Schema(example = "ABC123") String plate) {

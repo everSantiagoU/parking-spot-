@@ -63,12 +63,12 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    @DisplayName("CA-04: Flyway registra las migraciones V1 a V3 como exitosas")
+    @DisplayName("CA-04: Flyway registra las migraciones V1 a V4 como exitosas")
     void flywayRegistraLasMigraciones() {
         List<String> versiones = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank", String.class);
 
-        assertThat(versiones).containsExactly("1", "2", "3");
+        assertThat(versiones).containsExactly("1", "2", "3", "4");
     }
 
     @Test
