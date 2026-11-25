@@ -1,11 +1,12 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { ROUTES } from '../../app/router/routes'
 import { ApiError } from '../../services/httpClient'
 import { registerManualEntry } from './entriesApi'
 
 export function EntryLanePage() {
-  const [plate, setPlate] = useState('')
+  const initial = useLocation().state?.plate
+  const [plate, setPlate] = useState(typeof initial === 'string' ? initial.toUpperCase() : '')
   const [registeredPlate, setRegisteredPlate] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -21,7 +22,9 @@ export function EntryLanePage() {
     try {
       setRegisteredPlate(await registerManualEntry(plate.trim()))
     } catch (failure) {
-      setError(failure instanceof ApiError && failure.code === 'LLENO'
+      if (failure instanceof ApiError && failure.code === 'INGRESO_ACTIVO') {
+        setError('La placa ya tiene un ingreso activo en esta sede.')
+      } else setError(failure instanceof ApiError && failure.code === 'LLENO'
         ? 'No hay cupo disponible para este tipo de vehículo.'
         : failure instanceof Error ? failure.message : 'No se pudo registrar el ingreso.')
     } finally {
@@ -46,7 +49,7 @@ export function EntryLanePage() {
             disabled={pending}
             value={plate}
             onChange={(event) => {
-              setPlate(event.target.value)
+              setPlate(event.target.value.toUpperCase())
               setRegisteredPlate('')
               setError('')
             }}

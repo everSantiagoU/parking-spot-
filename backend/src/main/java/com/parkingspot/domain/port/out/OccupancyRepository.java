@@ -6,6 +6,9 @@ import java.util.List;
 
 /** Estado de ocupación por sede y tipo de vehículo (tabla ocupacion de la HU-05). */
 public interface OccupancyRepository {
+    /** Serializa la consulta de ingreso activo y la reserva hasta el fin de la transacción. */
+    void lockForEntry(long siteId, VehicleType type);
+
     /**
      * Ocupa un cupo solo si hay disponibilidad, de forma atómica: la verificación y el incremento son una
      * sola operación, así que dos ingresos simultáneos no pueden tomar el último cupo a la vez (HU-13).

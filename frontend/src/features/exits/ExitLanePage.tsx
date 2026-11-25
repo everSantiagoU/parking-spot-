@@ -54,7 +54,7 @@ export function ExitLanePage() {
             disabled={pending}
             value={plate}
             onChange={(event) => {
-              setPlate(event.target.value)
+              setPlate(event.target.value.toUpperCase())
               setResult(null)
               setError('')
             }}

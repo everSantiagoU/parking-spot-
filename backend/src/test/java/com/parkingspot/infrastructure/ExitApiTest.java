@@ -84,6 +84,41 @@ class ExitApiTest {
     }
 
     @Test
+    void simultaneousEntriesOccupyOneSpotUntilEffectiveExit() throws Exception {
+        var start = new CyclicBarrier(2);
+        Callable<String> enter = () -> {
+            start.await(10, TimeUnit.SECONDS);
+            var response = mvc.perform(asOperator("/api/v1/entries/manual", " abc12d "))
+                    .andReturn().getResponse();
+            var body = json.readTree(response.getContentAsByteArray());
+            boolean authorized = body.path("barreraAbierta").asBoolean();
+            assertThat(response.getStatus()).isEqualTo(authorized ? 201 : 409);
+            return body.path("resultado").asText();
+        };
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(enter);
+            var second = pool.submit(enter);
+            assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder("AUTORIZADO", "INGRESO_ACTIVO");
+        }
+        assertThat(occupied("MOTO")).isOne();
+        expectDecision("ABC12D", true, "EXENCION_COMPROBADA");
+        assertThat(occupied("MOTO")).isZero();
+        enter("ABC12D");
+        assertThat(occupied("MOTO")).isOne();
+    }
+
+    @Test
+    void latestPlateIgnoresARejectedEntry() throws Exception {
+        enter("ABC12D");
+        jdbc.sql("UPDATE ocupacion SET capacidad = 0 WHERE tipo_vehiculo = 'CARRO'").update();
+        mvc.perform(asOperator("/api/v1/entries/manual", "XYZ123")).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultado").value("LLENO"));
+        mvc.perform(get("/api/v1/entries/latest").with(user(OPERATOR).roles("OPERADOR")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.plate").value("ABC12D"));
+    }
+
+    @Test
     void paidExitReleasesExactlyOneOfTenAndAuditsTheDecision() throws Exception {
         jdbc.sql("UPDATE ocupacion SET capacidad = 10 WHERE tipo_vehiculo = 'CARRO'").update();
         for (int i = 0; i < 9; i++) {
@@ -197,6 +232,7 @@ class ExitApiTest {
         jdbc.sql("UPDATE tarifas SET valor = 2000 WHERE tipo_vehiculo = 'MOTO'").update();
         enter("ABC12D");
         jdbc.sql("UPDATE tarifas SET valor = 0 WHERE tipo_vehiculo = 'MOTO'").update();
+        jdbc.sql("DELETE FROM cobros WHERE placa = 'ABC12D'").update(); // Ingreso histórico sin cobro
         expectDecision("ABC12D", false, "EXENCION_INDETERMINADA");
 
         enter("XYZ12Z");
@@ -394,7 +430,7 @@ class ExitApiTest {
     }
 
     private void chargeCar() throws Exception {
-        mvc.perform(asOperator("/api/v1/charges", "ABC123")).andExpect(status().isCreated());
+        mvc.perform(asOperator("/api/v1/charges", "ABC123")).andExpect(status().is2xxSuccessful());
     }
 
     private void markPaid() {

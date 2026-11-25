@@ -53,7 +53,7 @@ export function ChargePage() {
               id="charge-plate"
               name="plate"
               value={plate}
-              onChange={(event) => setPlate(event.target.value)}
+              onChange={(event) => setPlate(event.target.value.toUpperCase())}
               autoComplete="off"
               placeholder="ABC123 o ABC12D"
               className="mt-2 w-full rounded-lg border border-slate-500 bg-slate-950 px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none"

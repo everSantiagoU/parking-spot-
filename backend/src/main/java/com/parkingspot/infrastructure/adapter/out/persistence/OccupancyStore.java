@@ -19,6 +19,13 @@ public class OccupancyStore implements OccupancyRepository {
         this.jdbc = jdbc;
     }
 
+    @Override
+    public void lockForEntry(long siteId, VehicleType type) {
+        jdbc.sql("SELECT sede_id FROM ocupacion WHERE sede_id = :site AND tipo_vehiculo = :type FOR UPDATE")
+                .param("site", siteId).param("type", type.name()).query(Long.class).optional()
+                .orElseThrow(() -> new OccupancyNotConfiguredException(siteId, type));
+    }
+
     /**
      * Verificar y ocupar son una sola sentencia: la base de datos bloquea la fila mientras la actualiza, y la
      * condición {@code ocupados < capacidad} se evalúa sobre el valor ya confirmado por otras transacciones.

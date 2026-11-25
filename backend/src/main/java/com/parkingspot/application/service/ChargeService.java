@@ -54,8 +54,10 @@ public class ChargeService implements GenerateChargeUseCase, FindTodayChargeUseC
 
     @Override
     public ChargeResult generate(String plate, long siteId) {
-        VehicleClassification vehicle = plateClassifier.classify(plate);
-        Instant now = clock.instant();
+        return generate(plateClassifier.classify(plate), siteId, clock.instant());
+    }
+
+    private ChargeResult generate(VehicleClassification vehicle, long siteId, Instant now) {
         LocalDate operatingDay = operatingDays.operatingDayOf(now);
 
         // HU-15 CA-03: si ya hay cobro en este día operativo, el reingreso no crea otro.
@@ -78,20 +80,9 @@ public class ChargeService implements GenerateChargeUseCase, FindTodayChargeUseC
         return saved.created() ? ChargeResult.created(saved.charge()) : ChargeResult.existing(saved.charge());
     }
 
-    /** Evidencia que se captura al autorizar el ingreso, dentro de su transacción. */
-    public Optional<LocalDate> exemptionAtEntry(long siteId, VehicleType type, Instant occurredAt) {
-        if (type != VehicleType.MOTO) {
-            return Optional.empty();
-        }
-        try {
-            Tariff tariff = applicableTariff(siteId, type, occurredAt);
-            if (strategies.strategyFor(type).amountToCharge(tariff).isEmpty()) {
-                return Optional.of(operatingDays.operatingDayOf(occurredAt));
-            }
-        } catch (TariffNotConfiguredException exception) {
-            // Sin configuración aplicable, el ingreso queda sin evidencia de exención.
-        }
-        return Optional.empty();
+    public Optional<LocalDate> settleEntryObligation(VehicleClassification vehicle, long siteId, Instant occurredAt) {
+        ChargeResult result = generate(vehicle, siteId, occurredAt);
+        return result.outcome() == ChargeResult.Outcome.EXENTO ? Optional.of(result.operatingDay()) : Optional.empty();
     }
 
     private Tariff applicableTariff(long siteId, VehicleType type, Instant now) {

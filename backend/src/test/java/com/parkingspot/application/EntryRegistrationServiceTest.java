@@ -14,6 +14,7 @@ import com.parkingspot.domain.model.PlateCapture;
 import com.parkingspot.domain.model.ReadingSource;
 import com.parkingspot.domain.model.VehicleType;
 import com.parkingspot.domain.port.out.EntryEventRepository;
+import com.parkingspot.domain.port.out.ExitEventRepository;
 import com.parkingspot.domain.port.out.OccupancyRepository;
 import com.parkingspot.domain.service.PlateClassifier;
 import com.parkingspot.infrastructure.adapter.out.plate.SimulatedPlateReader;
@@ -63,7 +64,7 @@ class EntryRegistrationServiceTest {
                 new ConfidenceThreshold(0.80), username -> Optional.of(OPERATOR));
         // Clock fijo: la prueba controla "la hora del servidor".
         return new EntryRegistrationService(validation, events, occupancy, new DirectTransactions(),
-                Clock.fixed(NOW, ZoneOffset.UTC), mock(ChargeService.class));
+                Clock.fixed(NOW, ZoneOffset.UTC), mock(ChargeService.class), mock(ExitEventRepository.class));
     }
 
     /** Sin base de datos: ejecuta el bloque directamente. */

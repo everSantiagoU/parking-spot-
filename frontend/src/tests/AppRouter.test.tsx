@@ -21,6 +21,7 @@ let root: Root
 type FetchStub = (url: string, init?: RequestInit) => Promise<ReturnType<typeof response>>
 
 let fetchMock: ReturnType<typeof vi.fn<FetchStub>>
+let latestFetchMock: ReturnType<typeof vi.fn<FetchStub>>
 let occupancyFetchMock: ReturnType<typeof vi.fn<FetchStub>>
 
 function occupancyResponse(cars: number, motorcycles = 2) {
@@ -34,9 +35,12 @@ beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   fetchMock = vi.fn<FetchStub>()
   occupancyFetchMock = vi.fn<FetchStub>().mockResolvedValue(occupancyResponse(10))
-  vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
-    (url.endsWith('/api/v1/occupancy') ? occupancyFetchMock : fetchMock)(url, init),
-  )
+  latestFetchMock = vi.fn<FetchStub>().mockResolvedValue(response(200, { plate: null }))
+  vi.stubGlobal('fetch', (url: string, init?: RequestInit) => {
+    if (url.endsWith('/entries/latest')) return latestFetchMock(url, init)
+    if (url.endsWith('/api/v1/occupancy')) return occupancyFetchMock(url, init)
+    return fetchMock(url, init)
+  })
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
@@ -173,7 +177,7 @@ describe('carril de salida', () => {
 
     expect(fetchMock).toHaveBeenLastCalledWith(expect.stringContaining('/api/v1/exits/validate'),
       expect.objectContaining({
-        method: 'POST', body: JSON.stringify({ plate }), credentials: 'include',
+        method: 'POST', body: JSON.stringify({ plate: plate.toUpperCase() }), credentials: 'include',
         headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'token' }),
       }))
     const status = container.querySelector('[role="status"]')?.textContent
@@ -328,7 +332,7 @@ describe('registro manual de ingreso', () => {
 
     expect(fetchMock).toHaveBeenLastCalledWith(expect.stringContaining('/api/v1/entries/manual'),
       expect.objectContaining({
-        method: 'POST', body: JSON.stringify({ plate: 'abc123' }), credentials: 'include',
+        method: 'POST', body: JSON.stringify({ plate: 'ABC123' }), credentials: 'include',
         headers: expect.objectContaining({ 'X-CSRF-TOKEN': 'token' }),
       }))
     expect(container.querySelector('[role="status"]')?.textContent).toContain('Ingreso autorizado.')
@@ -341,7 +345,8 @@ describe('registro manual de ingreso', () => {
     expect(container.querySelector('a[href="/operator/entry"]')?.textContent).toBe('Carril de entrada')
   })
 
-  it('muestra que no hay cupo cuando el ingreso se rechaza', async () => {
+  it('mantiene la última placa autorizada después de un rechazo y al recargar el panel', async () => {
+    latestFetchMock.mockResolvedValue(response(200, { plate: 'XYZ456' }))
     await render('/operator/entry', operator)
     await typeEntryPlate()
     stubCsrf()
@@ -353,6 +358,14 @@ describe('registro manual de ingreso', () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('No hay cupo')
     expect(container.textContent).not.toContain('Ingreso autorizado.')
     expect(container.querySelector('a[href="/operator/charges"]')).toBeNull()
+    await act(async () => container.querySelector<HTMLAnchorElement>('a[href="/operator"]')!.click())
+    expect(container.querySelector('strong')?.textContent).toBe('XYZ456')
+
+    await act(async () => root.unmount())
+    root = createRoot(container)
+    await render('/operator', operator)
+    expect(latestFetchMock).toHaveBeenCalledTimes(2)
+    expect(container.querySelector('strong')?.textContent).toBe('XYZ456')
   })
 
   it('bloquea el acceso al ingreso para un administrador', async () => {
