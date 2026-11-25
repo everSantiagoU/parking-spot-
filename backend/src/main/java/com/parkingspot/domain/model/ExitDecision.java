@@ -9,13 +9,11 @@ public enum ExitDecision {
     EXENCION_INDETERMINADA,
     SIN_INGRESO_ACTIVO,
     ERROR_CONSULTA,
+    OCUPACION_INCONSISTENTE,
+    ERROR_REGISTRO_SALIDA,
     ERROR_AUDITORIA;
 
     public boolean authorizesOpening() {
         return this == PAGO_CONFIRMADO || this == EXENCION_COMPROBADA;
-    }
-
-    public boolean isSystemError() {
-        return this == ERROR_CONSULTA || this == ERROR_AUDITORIA;
     }
 }

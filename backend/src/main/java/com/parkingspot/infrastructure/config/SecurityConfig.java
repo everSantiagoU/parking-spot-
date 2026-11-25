@@ -47,6 +47,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/plate-readings/simulate").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/entries/automatic").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/entries/manual").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/occupancy", "/api/v1/entries/latest").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/exits/validate").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/charges").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/charges/today").hasRole("OPERADOR")

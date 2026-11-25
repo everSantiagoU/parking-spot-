@@ -23,6 +23,7 @@ import java.lang.annotation.Target;
         "parking.entry.confidence-threshold=0.80"
 })
 @AutoConfigureMockMvc
+@org.springframework.test.context.bean.override.mockito.MockitoBean(types = com.parkingspot.application.service.ChargeService.class)
 @Import(FixedClockConfig.class)
 public @interface EntryIntegrationTest {
 }

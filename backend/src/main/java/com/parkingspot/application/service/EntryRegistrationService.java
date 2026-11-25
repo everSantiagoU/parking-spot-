@@ -9,8 +9,10 @@ import com.parkingspot.domain.model.EntryEvent;
 import com.parkingspot.domain.model.EntryOutcome;
 import com.parkingspot.domain.model.PlateCapture;
 import com.parkingspot.domain.port.out.EntryEventRepository;
+import com.parkingspot.domain.port.out.ExitEventRepository;
 import com.parkingspot.domain.port.out.OccupancyRepository;
 
+import com.parkingspot.domain.model.VehicleClassification;
 import java.time.Clock;
 
 /**
@@ -24,10 +26,12 @@ public class EntryRegistrationService implements RegisterEntryUseCase {
     private final Transactions transactions;
     private final Clock clock;
     private final ChargeService charges;
+    private final ExitEventRepository exits;
 
     public EntryRegistrationService(ValidateEntryReadingUseCase validation, EntryEventRepository events,
                                     OccupancyRepository occupancy, Transactions transactions, Clock clock,
-                                    ChargeService charges) {
+                                    ChargeService charges, ExitEventRepository exits) {
+        this.exits = exits;
         this.validation = validation;
         this.events = events;
         this.occupancy = occupancy;
@@ -52,14 +56,21 @@ public class EntryRegistrationService implements RegisterEntryUseCase {
 
     private EntryAttempt register(String readText, AcceptedReading accepted) {
         // HU-10 CA-02: la hora sale del reloj del servidor, nunca de la petición.
-        var now = clock.instant();
         var operator = accepted.operator();
         return transactions.inTransaction(() -> {
+            occupancy.lockForEntry(operator.siteId(), accepted.type());
+            var now = clock.instant();
+            if (exits.findActiveEntry(operator.siteId(), accepted.plate()).isPresent()) {
+                var rejected = EntryEvent.rejectedActive(accepted, now);
+                return EntryAttempt.registered(EntryOutcome.INGRESO_ACTIVO, readText, rejected,
+                        events.save(rejected, null), operator.username());
+            }
             // HU-13 CA-01 y CA-04: el cupo se valida por sede y tipo de vehículo, y se ocupa en la misma
             // operación atómica, así que ingresos simultáneos no superan la capacidad.
             if (occupancy.occupySpotIfAvailable(operator.siteId(), accepted.type())) {
                 var authorized = EntryEvent.authorized(accepted, now);
-                var exemption = charges.exemptionAtEntry(operator.siteId(), accepted.type(), now);
+                var exemption = charges.settleEntryObligation(
+                        new VehicleClassification(accepted.plate(), accepted.type()), operator.siteId(), now);
                 return EntryAttempt.registered(EntryOutcome.AUTORIZADO, readText, authorized,
                         events.save(authorized, exemption.orElse(null)), operator.username());
             }

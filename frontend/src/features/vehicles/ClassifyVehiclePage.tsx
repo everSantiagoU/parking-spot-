@@ -36,7 +36,7 @@ export function ClassifyVehiclePage() {
               id="plate"
               name="plate"
               value={plate}
-              onChange={(event) => setPlate(event.target.value)}
+              onChange={(event) => { setPlate(event.target.value.toUpperCase()); setResult(null) }}
               autoComplete="off"
               placeholder="ABC123 o ABC12D"
               className="mt-2 w-full rounded-lg border border-slate-500 bg-slate-950 px-4 py-3 text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none"
@@ -54,6 +54,7 @@ export function ClassifyVehiclePage() {
           <div role="status" className="mt-6 rounded-lg border border-teal-700 bg-teal-950 p-4">
             <p>Placa: <strong>{result.plate}</strong></p>
             <p>Tipo: <strong>{result.type}</strong></p>
+            <Link to={ROUTES.entry} state={{ plate: result.plate }} className="text-teal-300 underline">Registrar ingreso de {result.plate}</Link>
           </div>
         )}
         {error && <p role="alert" className="mt-6 rounded-lg border border-red-700 bg-red-950 p-4 text-red-100">{error}</p>}

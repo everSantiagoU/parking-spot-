@@ -6,6 +6,7 @@ export const ROUTES = {
   home: '/',
   operator: '/operator',
   admin: '/admin',
+  history: '/admin/history',
   classifyVehicle: '/vehicles/classify',
   charges: '/operator/charges',
   cashier: '/operator/cashier',
@@ -14,7 +15,6 @@ export const ROUTES = {
   exit: '/operator/exit',
   operatorHistory: '/operator/history',
   parkingConfiguration: '/admin/configuration',
-  adminHistory: '/admin/history',
 } as const
 
 export function panelForRole(role: Role) {
