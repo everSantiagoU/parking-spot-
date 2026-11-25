@@ -4,8 +4,8 @@ import { ModuleCard, type ModuleCardProps } from '../../components/ui/ModuleCard
 const OPERATOR_MODULES: ModuleCardProps[] = [
   { title: 'Clasificar placa', description: 'Identifica si una placa es de carro o de moto.', to: ROUTES.classifyVehicle },
   { title: 'Cobro del día', description: 'Calcula el cobro de un ingreso y consulta el cobro de hoy.', to: ROUTES.charges },
-  { title: 'Carril de entrada', description: 'Registra el ingreso de un vehículo por su placa.', story: 'HU-10' },
-  { title: 'Carril de salida', description: 'Valida el cobro del día y abre o mantiene cerrada la barrera.', story: 'HU-18' },
+  { title: 'Carril de entrada', description: 'Registra el ingreso de un vehículo por su placa.', to: ROUTES.entry },
+  { title: 'Carril de salida', description: 'Valida el cobro del día y abre o mantiene cerrada la barrera.', to: ROUTES.exit },
   { title: 'Caja', description: 'Registra el pago en efectivo del cobro de una placa.', to: ROUTES.cashier },
   { title: 'Consultar pase', description: 'Revisa si una placa tiene pase vigente para reingresar sin cobro.', to: ROUTES.pass },
 ]

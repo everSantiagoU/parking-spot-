@@ -26,13 +26,14 @@ CREATE TABLE eventos (
     resultado      VARCHAR(20)  NOT NULL,
     motivo         VARCHAR(200),
     cobro_id       BIGINT,
+    dia_operativo_exento DATE,
     usuario_id     BIGINT,
     ocurrido_en    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     CONSTRAINT fk_eventos_sede    FOREIGN KEY (sede_id)    REFERENCES sedes (id),
     CONSTRAINT fk_eventos_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
     CONSTRAINT ck_eventos_placa  CHECK (REGEXP_LIKE(placa, '^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z])$')),
     CONSTRAINT ck_eventos_tipo_vehiculo CHECK (tipo_vehiculo IN ('CARRO', 'MOTO')),
-    CONSTRAINT ck_eventos_tipo_evento   CHECK (tipo_evento IN ('INGRESO', 'SALIDA')),
+    CONSTRAINT ck_eventos_tipo_evento   CHECK (tipo_evento IN ('INGRESO', 'VALIDACION', 'SALIDA')),
     CONSTRAINT ck_eventos_origen        CHECK (origen_lectura IN ('AUTOMATICA', 'MANUAL')),
     CONSTRAINT ck_eventos_confianza     CHECK (confianza IS NULL OR confianza BETWEEN 0 AND 100),
     CONSTRAINT ck_eventos_manual_usuario CHECK (origen_lectura <> 'MANUAL' OR usuario_id IS NOT NULL)
@@ -43,3 +44,19 @@ INSERT INTO ocupacion (sede_id, tipo_vehiculo, capacidad)
 SELECT id, 'CARRO', 50 FROM sedes WHERE nombre = 'Sede Principal';
 INSERT INTO ocupacion (sede_id, tipo_vehiculo, capacidad)
 SELECT id, 'MOTO', 30 FROM sedes WHERE nombre = 'Sede Principal';
+
+-- Configuración necesaria para consultar la exención al registrar el ingreso.
+CREATE TABLE franjas (
+    sede_id BIGINT NOT NULL,
+    nombre VARCHAR(10) NOT NULL,
+    hora_inicio TIME NOT NULL,
+    hora_fin TIME NOT NULL
+);
+
+CREATE TABLE tarifas (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    sede_id BIGINT NOT NULL,
+    tipo_vehiculo VARCHAR(10) NOT NULL,
+    franja VARCHAR(10) NOT NULL,
+    valor NUMERIC(12,2) NOT NULL
+);

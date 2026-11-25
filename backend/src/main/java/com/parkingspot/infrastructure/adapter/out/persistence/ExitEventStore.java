@@ -1,0 +1,65 @@
+package com.parkingspot.infrastructure.adapter.out.persistence;
+
+import com.parkingspot.domain.model.EntryResult;
+import com.parkingspot.domain.model.ExitDecision;
+import com.parkingspot.domain.model.Operator;
+import com.parkingspot.domain.model.VehicleClassification;
+import com.parkingspot.domain.port.out.ExitEventRepository;
+import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Optional;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class ExitEventStore implements ExitEventRepository {
+    private final JdbcClient jdbc;
+
+    public ExitEventStore(JdbcClient jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    @Override
+    public Optional<ActiveEntry> findActiveEntry(long siteId, String plate) {
+        return jdbc.sql("""
+                SELECT id, dia_operativo_exento
+                FROM (
+                    SELECT id, dia_operativo_exento, tipo_evento
+                    FROM eventos
+                    WHERE sede_id = :site AND placa = :plate AND resultado = 'AUTORIZADO'
+                      AND tipo_evento IN ('INGRESO', 'SALIDA')
+                    ORDER BY ocurrido_en DESC, id DESC
+                    LIMIT 1
+                ) AS ultimo_movimiento
+                WHERE tipo_evento = 'INGRESO'
+                """)
+                .param("site", siteId)
+                .param("plate", plate)
+                .query((row, index) -> new ActiveEntry(row.getLong("id"),
+                        row.getObject("dia_operativo_exento", LocalDate.class)))
+                .optional();
+    }
+
+    @Override
+    public void recordAttempt(Operator operator, VehicleClassification vehicle, Instant now, ExitDecision decision,
+                              Long chargeId) {
+        jdbc.sql("""
+                INSERT INTO eventos (sede_id, placa, tipo_vehiculo, tipo_evento, origen_lectura,
+                                     resultado, motivo, usuario_id, ocurrido_en, cobro_id)
+                VALUES (:site, :plate, :type, 'VALIDACION', 'MANUAL',
+                        :result, :reason, :operator, :occurredAt, :charge)
+                """)
+                .param("site", operator.siteId())
+                .param("plate", vehicle.plate())
+                .param("type", vehicle.type().name())
+                .param("result", (decision.authorizesOpening() ? EntryResult.AUTORIZADO : EntryResult.RECHAZADO).name())
+                .param("reason", decision.name())
+                .param("operator", operator.id())
+                .param("occurredAt", OffsetDateTime.ofInstant(now, ZoneOffset.UTC), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("charge", chargeId, Types.BIGINT)
+                .update();
+    }
+}
