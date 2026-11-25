@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/charges/today").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments").hasRole("OPERADOR")
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/charge/*").hasRole("OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/passes").hasRole("OPERADOR")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors

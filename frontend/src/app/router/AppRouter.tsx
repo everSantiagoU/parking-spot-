@@ -7,6 +7,7 @@ import { AuthProvider, useAuth, type Role } from '../../features/auth/AuthProvid
 import { LoginPage } from '../../features/auth/LoginPage'
 import { HomePage } from '../../features/home/HomePage'
 import { OperatorHomePage } from '../../features/parking/OperatorHomePage'
+import { PassPage } from '../../features/passes/PassPage'
 import { ClassifyVehiclePage } from '../../features/vehicles/ClassifyVehiclePage'
 import { panelForRole, ROUTES } from './routes'
 
@@ -37,6 +38,7 @@ export function AppRouter() {
             <Route path={ROUTES.classifyVehicle} element={<ClassifyVehiclePage />} />
             <Route path={ROUTES.charges} element={<ChargePage />} />
             <Route path={ROUTES.cashier} element={<CashierPage />} />
+            <Route path={ROUTES.pass} element={<PassPage />} />
           </Route>
         </Route>
         <Route element={<RequireRole role="ADMIN" />}>
