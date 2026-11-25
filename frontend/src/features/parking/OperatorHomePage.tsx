@@ -9,6 +9,7 @@ const OPERATOR_MODULES: ModuleCardProps[] = [
   { title: 'Carril de salida', description: 'Valida el cobro del día y abre o mantiene cerrada la barrera.', to: ROUTES.exit },
   { title: 'Caja', description: 'Registra el pago en efectivo del cobro de una placa.', to: ROUTES.cashier },
   { title: 'Consultar pase', description: 'Revisa si una placa tiene pase vigente para reingresar sin cobro.', to: ROUTES.pass },
+  { title: 'Eventos y cobros', description: 'Consulta ingresos, salidas y cobros con filtros.', to: ROUTES.operatorHistory },
 ]
 
 /** Panel base del rol operador. */

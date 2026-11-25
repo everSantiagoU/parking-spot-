@@ -13,6 +13,7 @@ export const ROUTES = {
   pass: '/operator/pass',
   entry: '/operator/entry',
   exit: '/operator/exit',
+  operatorHistory: '/operator/history',
   parkingConfiguration: '/admin/configuration',
 } as const
 

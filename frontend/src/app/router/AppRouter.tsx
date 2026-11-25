@@ -1,4 +1,3 @@
-import { HistoryPage } from '../../features/administration/HistoryPage'
 import { ParkingConfigurationPage } from '../../features/tariffs/ParkingConfigurationPage'
 import { Link, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AppLayout } from '../../components/layout/AppLayout'
@@ -9,6 +8,7 @@ import { AuthProvider, useAuth, type Role } from '../../features/auth/AuthProvid
 import { LoginPage } from '../../features/auth/LoginPage'
 import { EntryLanePage } from '../../features/entries/EntryLanePage'
 import { ExitLanePage } from '../../features/exits/ExitLanePage'
+import { HistoryPage } from '../../features/history/HistoryPage'
 import { HomePage } from '../../features/home/HomePage'
 import { OperatorHomePage } from '../../features/parking/OperatorHomePage'
 import { PassPage } from '../../features/passes/PassPage'
@@ -45,6 +45,7 @@ export function AppRouter() {
             <Route path={ROUTES.entry} element={<EntryLanePage />} />
             <Route path={ROUTES.exit} element={<ExitLanePage />} />
             <Route path={ROUTES.pass} element={<PassPage />} />
+            <Route path={ROUTES.operatorHistory} element={<HistoryPage />} />
           </Route>
         </Route>
         <Route element={<RequireRole role="ADMIN" />}>
