@@ -1,6 +1,8 @@
 package com.parkingspot.domain.port.out;
 
+import com.parkingspot.domain.model.Occupancy;
 import com.parkingspot.domain.model.VehicleType;
+import java.util.List;
 
 /** Estado de ocupación por sede y tipo de vehículo (tabla ocupacion de la HU-05). */
 public interface OccupancyRepository {
@@ -12,4 +14,9 @@ public interface OccupancyRepository {
      * @throws com.parkingspot.domain.exception.OccupancyNotConfiguredException si la sede no tiene cupos para ese tipo
      */
     boolean occupySpotIfAvailable(long siteId, VehicleType type);
+
+    /** Libera un cupo de forma atómica. Devuelve false si la fila no existe o no tiene ocupación válida. */
+    boolean releaseOccupiedSpot(long siteId, VehicleType type);
+
+    List<Occupancy> findBySite(long siteId);
 }

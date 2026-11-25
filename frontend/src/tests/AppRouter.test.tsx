@@ -18,12 +18,25 @@ function CurrentLocation() {
 
 let container: HTMLDivElement
 let root: Root
-let fetchMock: ReturnType<typeof vi.fn>
+type FetchStub = (url: string, init?: RequestInit) => Promise<ReturnType<typeof response>>
+
+let fetchMock: ReturnType<typeof vi.fn<FetchStub>>
+let occupancyFetchMock: ReturnType<typeof vi.fn<FetchStub>>
+
+function occupancyResponse(cars: number, motorcycles = 2) {
+  return response(200, [
+    { vehicleType: 'CARRO', capacity: 10, occupied: cars },
+    { vehicleType: 'MOTO', capacity: 5, occupied: motorcycles },
+  ])
+}
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  fetchMock = vi.fn()
-  vi.stubGlobal('fetch', fetchMock)
+  fetchMock = vi.fn<FetchStub>()
+  occupancyFetchMock = vi.fn<FetchStub>().mockResolvedValue(occupancyResponse(10))
+  vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
+    (url.endsWith('/api/v1/occupancy') ? occupancyFetchMock : fetchMock)(url, init),
+  )
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
@@ -209,6 +222,71 @@ describe('carril de salida', () => {
     await act(async () => submitExit())
     expect(container.querySelector('[role="alert"]')).toBeTruthy()
     expect(container.textContent).toContain('Barrera simulada cerrada')
+  })
+
+  function occupancyRows() {
+    return [...container.querySelectorAll('tbody tr')].map((row) =>
+      [...row.querySelectorAll('th, td')].map((cell) => cell.textContent),
+    )
+  }
+
+  it('muestra los cupos persistidos y los consulta otra vez tras una salida autorizada', async () => {
+    await openLane()
+    expect(occupancyRows()).toEqual([
+      ['Carros', '10', '10', '0'],
+      ['Motos', '5', '2', '3'],
+    ])
+
+    stubCsrf()
+    fetchMock.mockResolvedValueOnce(response(200, { barrierOpen: true, code: 'PAGO_CONFIRMADO' }))
+    let receiveOccupancy!: (result: ReturnType<typeof response>) => void
+    occupancyFetchMock.mockImplementationOnce(() => new Promise((resolve) => { receiveOccupancy = resolve }))
+    await act(async () => submitExit())
+    expect(container.textContent).toContain('Barrera simulada abierta')
+    expect(container.textContent).toContain('Consultando disponibilidad')
+    expect(occupancyRows()[0]).toEqual(['Carros', '10', '10', '0'])
+
+    await act(async () => receiveOccupancy(occupancyResponse(9)))
+    expect(occupancyRows()).toEqual([
+      ['Carros', '10', '9', '1'],
+      ['Motos', '5', '2', '3'],
+    ])
+    expect(occupancyFetchMock).toHaveBeenCalledTimes(2)
+    expect(occupancyFetchMock).toHaveBeenLastCalledWith(expect.stringContaining('/api/v1/occupancy'),
+      expect.objectContaining({ credentials: 'include', cache: 'no-store' }))
+  })
+
+  it('conserva la disponibilidad ante una salida rechazada', async () => {
+    await openLane()
+    stubCsrf()
+    fetchMock.mockResolvedValueOnce(response(200, { barrierOpen: false, code: 'PAGO_PENDIENTE' }))
+    await act(async () => submitExit())
+
+    expect(container.textContent).toContain('Barrera simulada cerrada')
+    expect(occupancyRows()).toEqual([
+      ['Carros', '10', '10', '0'],
+      ['Motos', '5', '2', '3'],
+    ])
+    expect(occupancyFetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('conserva el resultado de la salida si falla la consulta posterior de cupos y permite reintentar', async () => {
+    await openLane()
+    stubCsrf()
+    fetchMock.mockResolvedValueOnce(response(200, { barrierOpen: true, code: 'PAGO_CONFIRMADO' }))
+    occupancyFetchMock.mockResolvedValueOnce(response(503))
+    await act(async () => submitExit())
+
+    expect(container.textContent).toContain('Barrera simulada abierta')
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('No se pudo actualizar la disponibilidad')
+    expect(occupancyRows()[0]).toEqual(['Carros', '10', '10', '0'])
+
+    occupancyFetchMock.mockResolvedValueOnce(occupancyResponse(9))
+    const refresh = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Actualizar cupos')!
+    await act(async () => refresh.click())
+    expect(container.querySelector('[role="alert"]')).toBeNull()
+    expect(container.textContent).toContain('Barrera simulada abierta')
+    expect(occupancyRows()[0]).toEqual(['Carros', '10', '9', '1'])
   })
 
   it('bloquea la ruta a un administrador', async () => {
