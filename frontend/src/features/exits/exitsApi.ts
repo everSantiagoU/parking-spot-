@@ -1,4 +1,4 @@
-import { postJson } from '../../services/httpClient'
+import { postJson, request } from '../../services/httpClient'
 
 export const exitReasons = {
   PAGO_CONFIRMADO: 'El cobro del día operativo está pagado.',
@@ -8,6 +8,8 @@ export const exitReasons = {
   EXENCION_INDETERMINADA: 'No se encontró un cobro del día ni una exención comprobada.',
   SIN_INGRESO_ACTIVO: 'La placa no tiene un ingreso activo en esta sede.',
   ERROR_CONSULTA: 'No se pudo consultar la información de salida.',
+  OCUPACION_INCONSISTENTE: 'La ocupación de la sede impide registrar la salida.',
+  ERROR_REGISTRO_SALIDA: 'No se pudo registrar la salida.',
   ERROR_AUDITORIA: 'No se pudo registrar el intento de salida.',
 } as const
 
@@ -25,4 +27,14 @@ export async function validateExit(plate: string) {
     throw new Error('Respuesta de salida inválida.')
   }
   return { ...result, reason }
+}
+
+export type Occupancy = {
+  vehicleType: 'CARRO' | 'MOTO'
+  capacity: number
+  occupied: number
+}
+
+export function findSiteOccupancy(signal: AbortSignal) {
+  return request<Occupancy[]>('/api/v1/occupancy', { signal, cache: 'no-store' })
 }

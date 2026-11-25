@@ -52,7 +52,8 @@ public class EntryController {
             "confidence":0.93,"source":"SIMULADOR","operador":"operador1"}""";
     private static final String FULL_DESCRIPTION = "LLENO: no hay cupo para ese tipo de vehículo en la sede. La "
             + "barrera sigue cerrada y el intento queda guardado como RECHAZADO (cuerpo EntryResponse). También 409 "
-            + "OCCUPANCY_NOT_CONFIGURED si la sede no tiene cupos para ese tipo (cuerpo ErrorResponse).";
+            + "INGRESO_ACTIVO si la placa ya tiene ingreso en esta sede (EntryResponse), u " +
+            "OCCUPANCY_NOT_CONFIGURED si la sede no tiene cupos para ese tipo (cuerpo ErrorResponse).";
     private static final String ACCESS_DENIED = """
             {"code":"ACCESS_DENIED","message":"Acceso denegado."}""";
     private static final String OPERATOR_NOT_AVAILABLE = """
@@ -158,7 +159,7 @@ public class EntryController {
         var status = switch (attempt.outcome()) {
             case AUTORIZADO -> HttpStatus.CREATED;
             case REQUIERE_VALIDACION -> HttpStatus.OK;
-            case LLENO -> HttpStatus.CONFLICT;
+            case LLENO, INGRESO_ACTIVO -> HttpStatus.CONFLICT;
         };
         return ResponseEntity.status(status).body(EntryResponse.from(attempt));
     }

@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { ROUTES } from '../../app/router/routes'
 import { ApiError } from '../../services/httpClient'
+import { SiteOccupancy } from './SiteOccupancy'
 import { exitReason, validateExit } from './exitsApi'
 
 export function ExitLanePage() {
@@ -9,7 +10,12 @@ export function ExitLanePage() {
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<Awaited<ReturnType<typeof validateExit>> | null>(null)
   const [error, setError] = useState('')
+  const [occupancyRevision, setOccupancyRevision] = useState(0)
   const submitting = useRef(false)
+
+  function refreshOccupancy() {
+    setOccupancyRevision((revision) => revision + 1)
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -20,7 +26,9 @@ export function ExitLanePage() {
     setResult(null)
     setError('')
     try {
-      setResult(await validateExit(plate.trim()))
+      const decision = await validateExit(plate.trim())
+      setResult(decision)
+      if (decision.barrierOpen) refreshOccupancy()
     } catch (failure) {
       setError(failure instanceof ApiError
         ? (exitReason(failure.code ?? '') ?? failure.message)
@@ -46,7 +54,7 @@ export function ExitLanePage() {
             disabled={pending}
             value={plate}
             onChange={(event) => {
-              setPlate(event.target.value)
+              setPlate(event.target.value.toUpperCase())
               setResult(null)
               setError('')
             }}
@@ -75,6 +83,7 @@ export function ExitLanePage() {
         </p>
       )}
       {error && <p role="alert" className="mt-2 text-rose-300">{error}</p>}
+      <SiteOccupancy revision={occupancyRevision} onRefresh={refreshOccupancy} />
     </section>
   )
 }

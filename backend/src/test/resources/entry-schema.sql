@@ -27,6 +27,7 @@ CREATE TABLE eventos (
     motivo         VARCHAR(200),
     cobro_id       BIGINT,
     dia_operativo_exento DATE,
+    ingreso_id     BIGINT UNIQUE REFERENCES eventos (id),
     usuario_id     BIGINT,
     ocurrido_en    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     CONSTRAINT fk_eventos_sede    FOREIGN KEY (sede_id)    REFERENCES sedes (id),
@@ -34,6 +35,8 @@ CREATE TABLE eventos (
     CONSTRAINT ck_eventos_placa  CHECK (REGEXP_LIKE(placa, '^([A-Z]{3}[0-9]{3}|[A-Z]{3}[0-9]{2}[A-Z])$')),
     CONSTRAINT ck_eventos_tipo_vehiculo CHECK (tipo_vehiculo IN ('CARRO', 'MOTO')),
     CONSTRAINT ck_eventos_tipo_evento   CHECK (tipo_evento IN ('INGRESO', 'VALIDACION', 'SALIDA')),
+    CONSTRAINT ck_eventos_salida_vinculada CHECK (ingreso_id IS NULL OR
+           (tipo_evento = 'SALIDA' AND resultado = 'AUTORIZADO')),
     CONSTRAINT ck_eventos_origen        CHECK (origen_lectura IN ('AUTOMATICA', 'MANUAL')),
     CONSTRAINT ck_eventos_confianza     CHECK (confianza IS NULL OR confianza BETWEEN 0 AND 100),
     CONSTRAINT ck_eventos_manual_usuario CHECK (origen_lectura <> 'MANUAL' OR usuario_id IS NOT NULL)

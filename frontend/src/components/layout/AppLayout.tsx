@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router'
+import { Link, NavLink, Outlet } from 'react-router'
 import { useAuth } from '../../features/auth/AuthProvider'
 import { panelForRole, ROUTES } from '../../app/router/routes'
 
@@ -31,7 +31,7 @@ export function AppLayout() {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <span className="text-lg font-bold tracking-tight">Parking Spot</span>
+          <Link className="text-lg font-bold tracking-tight" to={user ? panelForRole(user.role) : ROUTES.home}>Parking Spot</Link>
           <nav aria-label="Navegación principal" className="flex gap-2">
             <NavLink to={ROUTES.home} end className={navClass}>Inicio</NavLink>
             {user && (

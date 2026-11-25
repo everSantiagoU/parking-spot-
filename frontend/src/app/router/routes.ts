@@ -6,6 +6,7 @@ export const ROUTES = {
   home: '/',
   operator: '/operator',
   admin: '/admin',
+  history: '/admin/history',
   classifyVehicle: '/vehicles/classify',
   charges: '/operator/charges',
   cashier: '/operator/cashier',

@@ -13,6 +13,10 @@ Monorepo del sistema académico Parking Spot. El repositorio contiene un monolit
 
 Consulta los README de `backend/` y `frontend/` para trabajar en cada parte por separado. Para iniciar sesión con HU-06, prepara el esquema de HU-05 y crea una cuenta por rol según el [README del backend](backend/README.md#preparar-postgresql-y-crear-cuentas-de-prueba).
 
+## Alcance de HU-20
+
+El administrador puede consultar «Eventos y cobros» y filtrar por placa, fechas y estado de cobro. Para cerrar HU-20 completa queda pendiente el acceso del operador al historial.
+
 ## Arranque desde cero con Docker Compose
 
 El MVP se ejecuta completo en el equipo local, sin servicios en la nube.

@@ -39,6 +39,10 @@ public record EntryEvent(long siteId, String plate, VehicleType type, ReadingSou
         return of(reading, EntryResult.RECHAZADO, FULL_REASON, occurredAt);
     }
 
+    public static EntryEvent rejectedActive(AcceptedReading reading, Instant occurredAt) {
+        return of(reading, EntryResult.RECHAZADO, EntryOutcome.INGRESO_ACTIVO.name(), occurredAt);
+    }
+
     private static EntryEvent of(AcceptedReading reading, EntryResult result, String reason, Instant occurredAt) {
         return new EntryEvent(reading.operator().siteId(), reading.plate(), reading.type(), reading.source(),
                 reading.confidence(), result, reason, reading.operator().id(), occurredAt);
