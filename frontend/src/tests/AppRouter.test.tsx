@@ -78,7 +78,7 @@ describe('rutas y sesión', () => {
 
   it('recupera la sesión de administrador y muestra sus módulos', async () => {
     await render('/admin', admin)
-    expect(container.textContent).toContain('Tarifas y franjas')
+    expect(container.textContent).toContain('Tarifas, franjas y cupos')
     expect(container.querySelector('a[href="/operator"]')).toBeNull()
   })
 
@@ -86,7 +86,7 @@ describe('rutas y sesión', () => {
     await render('/admin', operator)
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Acceso denegado.')
     expect(container.querySelector('a')?.getAttribute('href')).toBe('/operator')
-    expect(container.textContent).not.toContain('Tarifas y franjas')
+    expect(container.textContent).not.toContain('Tarifas, franjas y cupos')
   })
 
   it.each([401, 403])('gestiona HTTP %s al clasificar con una sesión previamente válida', async (status) => {
