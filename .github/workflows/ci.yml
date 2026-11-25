@@ -1,0 +1,82 @@
+# Integración continua de Parking Spot (HU-24).
+# Compila y prueba el backend (Java 21 + Maven) y el frontend (Node + Vite)
+# en cada Pull Request y en cada push a develop o main.
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+# Solo lectura: el pipeline no necesita escribir en el repositorio ni usa secretos.
+permissions:
+  contents: read
+
+# Si llega un nuevo push al mismo PR, se cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Java 21 + Maven)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 21 con caché de Maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      # "verify" compila, ejecuta las pruebas unitarias y las de integración.
+      # Las pruebas con Testcontainers levantan su propio PostgreSQL usando
+      # el Docker que ya trae el runner, así que no hace falta una base aparte.
+      - name: Compilar y ejecutar pruebas
+        run: mvn -B -ntp verify
+
+      - name: Guardar reportes de pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Frontend (Node + Vite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22 con caché de npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias (lockfile)
+        run: npm ci
+
+      - name: Ejecutar pruebas
+        run: npm test
+
+      - name: Generar el build de React
+        run: npm run build
