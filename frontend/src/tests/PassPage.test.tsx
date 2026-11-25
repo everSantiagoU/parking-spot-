@@ -64,7 +64,7 @@ describe('consulta de pase (HU-17)', () => {
     const [url] = fetchMock.mock.calls.at(-1)!
     expect(String(url)).toContain('/api/v1/passes?plate=abc123')
     const result = container.querySelector('[role="status"]')?.textContent ?? ''
-    expect(result).toContain('Placa: ABC123')
+    expect(result).toContain('Placa: ABC123 X')
     expect(result).toContain('Estado: Vigente')
     expect(result).toContain('Vigente hasta')
     expect(result).toContain('sin un cobro adicional')
