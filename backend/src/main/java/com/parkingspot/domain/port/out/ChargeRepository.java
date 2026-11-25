@@ -4,7 +4,11 @@ import com.parkingspot.domain.model.Charge;
 import java.time.LocalDate;
 import java.util.Optional;
 
-/** Persistencia de cobros. */
+/**
+ * Patrón Repository: persistencia de cobros vista como una colección del dominio.
+ * Los casos de uso dependen de esta interfaz y no saben que detrás hay PostgreSQL
+ * ({@code JdbcChargeRepository}); en las pruebas se reemplaza por una versión en memoria.
+ */
 public interface ChargeRepository {
 
     Optional<Charge> findByPlateAndSiteAndDay(String plate, long siteId, LocalDate operatingDay);
