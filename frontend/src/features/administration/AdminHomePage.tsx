@@ -9,7 +9,7 @@ const ADMIN_MODULES: ModuleCardProps[] = [
   to: ROUTES.parkingConfiguration,
 },
   { title: 'Cupos', description: 'Define la capacidad por tipo de vehículo en la sede.', story: 'HU-12' },
-  { title: 'Eventos y cobros', description: 'Consulta ingresos, salidas y cobros con filtros.', story: 'HU-17' },
+  { title: 'Eventos y cobros', description: 'Consulta ingresos, salidas y cobros con filtros.', to: ROUTES.adminHistory },
 ]
 
 /** Panel base del rol administrador. */
