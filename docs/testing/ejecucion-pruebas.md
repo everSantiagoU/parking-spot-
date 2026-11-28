@@ -21,7 +21,7 @@ Desde la raíz del repositorio:
 mvn -f backend/pom.xml verify
 ```
 
-`verify` compila, ejecuta todas las pruebas y falla si alguna falla. Los reportes quedan en `backend/target/surefire-reports/` (un `.txt` y un `TEST-*.xml` por clase). Para repetir desde cero, usa `mvn -f backend/pom.xml clean verify`.
+`verify` compila, ejecuta todas las pruebas y falla si alguna falla. Los reportes quedan en `backend/target/surefire-reports/` (un `.txt` y un `TEST-*.xml` por clase). El reporte de cobertura de JaCoCo queda en `backend/target/site/jacoco/index.html`; es solo informativo y no tiene umbral. Para repetir desde cero, usa `mvn -f backend/pom.xml clean verify`.
 
 Para ejecutar una sola clase o un solo método:
 
@@ -79,7 +79,7 @@ npx vitest run --reporter=json --outputFile=vitest-results.json
 
 ## 5. Integración continua
 
-El workflow `.github/workflows/ci.yml` (HU-24) ejecuta `mvn -B -ntp verify` y las pruebas del frontend en cada Pull Request hacia `develop` o `main`. El runner `ubuntu-latest` trae Docker, así que en CI corren también las 87 pruebas con Testcontainers, y los reportes de surefire quedan como artefacto `backend-test-reports`.
+El workflow `.github/workflows/ci.yml` (HU-24) ejecuta `mvn -B -ntp verify` y las pruebas del frontend en cada Pull Request hacia `develop` o `main`. El runner `ubuntu-latest` trae Docker, así que en CI corren también las 87 pruebas con Testcontainers. Los reportes de surefire quedan como artefacto `backend-test-reports` y el de cobertura como `backend-coverage-report`.
 
 ## 6. Resultado esperado
 

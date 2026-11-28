@@ -29,7 +29,20 @@ Salida de Vitest: `Test Files 12 passed (12)` · `Tests 73 passed (73)`.
 | Backend | 236 (173 sin Docker + 63 con Testcontainers) | 343 | **107** en 5 clases: `AcademicScenariosTest` (7), `ParkingConfigurationApiTest` (17), `SecurityMatrixTest` (47), `PlatformApiTest` (28) y `TimeSlotScheduleTest` (8) |
 | Frontend | 54 en 8 archivos | 73 en 12 archivos | **19** en 4 archivos: `LoginPage` (6), `ParkingConfigurationPage` (6), `ClassifyVehiclePage` (2) y `EntryLanePage` (5). Además, el soporte `tests/support/testApp.tsx` |
 
-No se modificó código de producción ni dependencias. Tampoco se tocaron los 19 archivos del PR #50 (HU-22).
+No se modificó código de producción ni dependencias de la aplicación. Tampoco se tocaron los 19 archivos del PR #50 (HU-22). El único cambio de build es el reporte de cobertura (sección 1.1).
+
+### 1.1 Cobertura del backend (JaCoCo)
+
+`mvn verify` genera el reporte con `jacoco-maven-plugin` 0.8.12 en `backend/target/site/jacoco/index.html` (además del XML y el CSV). En CI se publica como el artefacto `backend-coverage-report`. **Es solo informativo: no hay umbral, así que no puede hacer fallar el build.**
+
+| Capa | Líneas cubiertas | Ramas cubiertas |
+|---|---|---|
+| `domain` | 98,8 % (253/256) | 94,7 % (72/76) |
+| `application` | 97,4 % (259/266) | 92,2 % (71/77) |
+| `infrastructure` | 94,4 % (679/719) | 74,6 % (129/173) |
+| **Total** (152 clases) | **95,8 % (1.192/1.244)** | **83,4 % (272/326)** |
+
+Corrida del 27/11/2026 con Docker encendido. Sin Docker, la cobertura baja porque no se ejecutan las suites de Testcontainers. Entre corridas puede variar unas décimas, porque las pruebas de concurrencia recorren caminos distintos según el orden en que terminan los hilos. La clase menos cubierta es `CreateAccount` (0 %), la consola interactiva de alta de cuentas de la HU-06. Las ramas de infraestructura que faltan son sobre todo manejadores de error poco frecuentes (por ejemplo, en `ChargeErrorHandler` y `OccupancyController`).
 
 ## 2. Casos de prueba
 
@@ -187,4 +200,4 @@ Observaciones (no son fallos):
 1. **La validación de la HU-12 vive en el adaptador de persistencia** (`ParkingConfigurationStore`), no en el dominio, y usa SQL propio de PostgreSQL (`ON CONFLICT`). Por eso solo se puede probar por la API con Testcontainers y no con pruebas unitarias del dominio. El PR #50 (HU-22) mueve los errores a excepciones de dominio y conserva el contrato HTTP (422 `CONFIGURACION_INVALIDA` y 404), así que estas pruebas siguen siendo válidas después de ese PR.
 2. **Docker apagado.** Sin Docker, las 9 suites de Testcontainers (87 casos) se omiten y el build sigue en verde. Se documentó en la [guía de ejecución](ejecucion-pruebas.md) cómo verificar que el resumen diga `Skipped: 0`. El total sin Docker (`Tests run: 336, Skipped: 80`) se calculó a partir de la corrida base, que se hizo con Docker apagado, más los métodos agregados.
 3. **Vitest en Windows.** Si la carpeta se abre con la letra de unidad en minúscula (`c:\`), fallan todos los archivos con "Vitest failed to find the runner". Se documentó cómo evitarlo.
-4. **El frontend no usa React Testing Library.** Las pruebas siguen el estilo del equipo (Vitest + jsdom + `act`), con el helper `tests/support/testApp.tsx`.
+4. **El frontend no usa React Testing Library (RTL).** La subtarea de la issue #33 la menciona, pero el CA-04 pide pruebas "con Vitest". El proyecto no tiene RTL instalado y las pruebas que ya existían usan Vitest + jsdom, montando la aplicación con `createRoot` y `act`. Para no agregar dependencias, las 19 pruebas nuevas siguen ese mismo estilo, con el helper `tests/support/testApp.tsx`: monta la aplicación real con su enrutador, simula el backend por método y ruta, y consulta el DOM por roles accesibles (`role="alert"` y `role="status"`). Si se requiere, se puede agregar `@testing-library/react` como devDependency y migrar el helper, sin cambiar lo que verifica cada prueba.
