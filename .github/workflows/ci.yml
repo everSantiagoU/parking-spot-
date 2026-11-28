@@ -54,6 +54,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # HU-23: reporte de cobertura de JaCoCo (HTML, XML y CSV). Es informativo: no tiene umbral.
+      - name: Guardar reporte de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 7
+
   frontend:
     name: Frontend (Node + Vite)
     runs-on: ubuntu-latest
